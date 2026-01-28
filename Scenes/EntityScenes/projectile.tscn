@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3 uid="uid://b0w5xf63kl6ma"]
+
+[ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/projectile.cs" id="1_gjuwm"]
+
+[node name="projectile" type="CharacterBody2D" groups=["projectile"]]
+script = ExtResource("1_gjuwm")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+
+[node name="trail" type="Line2D" parent="."]
+top_level = true
+points = PackedVector2Array(156, 2027)
+begin_cap_mode = 2

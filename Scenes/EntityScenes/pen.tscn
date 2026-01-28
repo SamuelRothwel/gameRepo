@@ -1,0 +1,3 @@
+[gd_scene format=3 uid="uid://ccjbmt3ef7jip"]
+
+[node name="pen" type="Node2D" groups=["pen"]]

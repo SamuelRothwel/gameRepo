@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3 uid="uid://cb826v0q10oc8"]
+
+[ext_resource type="Texture2D" uid="uid://j44o8yg76slj" path="res://visualAssets/pixelAssets/sprites/enemySprites/New Piskel-1.png (1).png" id="1_mrqko"]
+[ext_resource type="Script" path="res://scripts/logicScripts/Bases/damageableSprite.cs" id="2_5gdwd"]
+
+[node name="testEnemy" type="Node"]
+
+[node name="lmao" type="Sprite2D" parent="." groups=["pixelHitbox"]]
+scale = Vector2(5, 5)
+texture = ExtResource("1_mrqko")
+script = ExtResource("2_5gdwd")
+
+[node name="CharacterBody2D" type="CharacterBody2D" parent="lmao"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="lmao/CharacterBody2D"]
+scale = Vector2(0.2, 0.2)

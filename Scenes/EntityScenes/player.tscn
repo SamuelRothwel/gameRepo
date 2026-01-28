@@ -1,0 +1,73 @@
+[gd_scene load_steps=9 format=3 uid="uid://d8se50ch7t1a"]
+
+[ext_resource type="Texture2D" uid="uid://ddise57fn3f83" path="res://visualAssets/pixelAssets/sprites/carSprites/redCar.png" id="1_q11e3"]
+[ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/movement.cs" id="2_ssur2"]
+[ext_resource type="Texture2D" uid="uid://dxg1rtfqapx5l" path="res://visualAssets/pixelAssets/Animations/Minigun/shootMinigun/2.png" id="3_6kx7t"]
+[ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/Gun.cs" id="4_na7cq"]
+[ext_resource type="AudioStream" uid="uid://bso0swmdrrama" path="res://AudioAssets/metalPipe.mp3" id="5_wy4yo"]
+[ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/GunBarrel.cs" id="6_7sa5q"]
+
+[sub_resource type="Animation" id="Animation_8fsmh"]
+resource_name = "test"
+length = 10.0
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Gun:texture")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.3, 1.7),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [ExtResource("1_q11e3"), ExtResource("3_6kx7t")]
+}
+tracks/1/type = "audio"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Gun/audio")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"clips": [{
+"end_offset": 0.0,
+"start_offset": 0.0,
+"stream": ExtResource("5_wy4yo")
+}],
+"times": PackedFloat32Array(0.3)
+}
+tracks/1/use_blend = true
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_dof7g"]
+_data = {
+"test": SubResource("Animation_8fsmh")
+}
+
+[node name="player" type="Sprite2D" groups=["car"]]
+modulate = Color(0.898039, 1, 1, 1)
+position = Vector2(0, 200)
+scale = Vector2(0.995601, 0.997993)
+texture = ExtResource("1_q11e3")
+script = ExtResource("2_ssur2")
+
+[node name="Gun" type="Node2D" parent="." groups=["+1", "wheel"]]
+position = Vector2(14.5, -10.5)
+script = ExtResource("4_na7cq")
+
+[node name="animator" type="AnimationPlayer" parent="Gun" groups=["GunAnimations"]]
+root_node = NodePath("../..")
+libraries = {
+"": SubResource("AnimationLibrary_dof7g")
+}
+
+[node name="audio" type="AudioStreamPlayer2D" parent="Gun"]
+visible = false
+
+[node name="barrel1" type="Sprite2D" parent="Gun"]
+script = ExtResource("6_7sa5q")
+
+[node name="barrel2" type="Sprite2D" parent="Gun"]
+script = ExtResource("6_7sa5q")
+
+[node name="barrel3" type="Sprite2D" parent="Gun"]
+script = ExtResource("6_7sa5q")

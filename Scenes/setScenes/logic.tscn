@@ -1,0 +1,20 @@
+[gd_scene load_steps=4 format=3 uid="uid://ci0uwvwf41hiw"]
+
+[ext_resource type="Script" path="res://scripts/logicScripts/BackgroundLogic/trail.cs" id="1_8hfaa"]
+[ext_resource type="Script" path="res://scripts/logicScripts/BackgroundLogic/staticCreator.cs" id="2_i2w5w"]
+[ext_resource type="Script" path="res://scripts/logicScripts/BackgroundLogic/shaderLogic.cs" id="3_6unlc"]
+
+[node name="Logic" type="Node"]
+
+[node name="fx" type="Node" parent="."]
+
+[node name="Trails" type="Node" parent="fx" groups=["BackgroundLogic"]]
+script = ExtResource("1_8hfaa")
+
+[node name="Node" type="Node" parent="."]
+
+[node name="Node" type="Node" parent="Node" groups=["BackgroundLogic"]]
+script = ExtResource("2_i2w5w")
+
+[node name="damageShader" type="Node" parent="Node" groups=["BackgroundLogic"]]
+script = ExtResource("3_6unlc")

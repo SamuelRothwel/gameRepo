@@ -1,0 +1,29 @@
+[gd_scene load_steps=9 format=3 uid="uid://6npwkntkdgxi"]
+
+[ext_resource type="PackedScene" uid="uid://d8se50ch7t1a" path="res://Scenes/EntityScenes/player.tscn" id="1_bghh0"]
+[ext_resource type="PackedScene" uid="uid://b0w5xf63kl6ma" path="res://Scenes/EntityScenes/projectile.tscn" id="2_gx7hh"]
+[ext_resource type="PackedScene" uid="uid://cb826v0q10oc8" path="res://Scenes/EntityScenes/test_enemy.tscn" id="3_jxito"]
+[ext_resource type="PackedScene" uid="uid://bmqx453ricdud" path="res://Scenes/EntityScenes/crawler_enemy.tscn" id="4_s3nl4"]
+[ext_resource type="PackedScene" uid="uid://dv0c85xh5eege" path="res://Scenes/EntityScenes/marine.tscn" id="5_hylvk"]
+[ext_resource type="PackedScene" uid="uid://bvhvjcbx7cotp" path="res://Scenes/EntityScenes/player_camera.tscn" id="6_4oytr"]
+[ext_resource type="PackedScene" uid="uid://ccjbmt3ef7jip" path="res://Scenes/EntityScenes/pen.tscn" id="7_8fvkn"]
+[ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/pen.cs" id="8_cexfp"]
+
+[node name="Entities" type="Node"]
+
+[node name="player" parent="." instance=ExtResource("1_bghh0")]
+
+[node name="projectile" parent="." instance=ExtResource("2_gx7hh")]
+
+[node name="testEnemy" parent="." groups=["enemy"] instance=ExtResource("3_jxito")]
+
+[node name="carEnemy" type="Sprite2D" parent="." groups=["enemy"]]
+
+[node name="crawlerEnemy" parent="." instance=ExtResource("4_s3nl4")]
+
+[node name="marine" parent="." instance=ExtResource("5_hylvk")]
+
+[node name="playerCamera" parent="." instance=ExtResource("6_4oytr")]
+
+[node name="pen" parent="." instance=ExtResource("7_8fvkn")]
+script = ExtResource("8_cexfp")

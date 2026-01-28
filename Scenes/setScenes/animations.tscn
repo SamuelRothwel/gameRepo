@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://cgu8xngy42cdt"]
+
+[ext_resource type="Script" path="res://scripts/scriptSets/AnimationScripts/GunAnimation.cs" id="1_5yqxj"]
+
+[node name="Animations" type="Node"]
+
+[node name="GunAnimations" type="Node" parent="." groups=["Animation"]]
+script = ExtResource("1_5yqxj")

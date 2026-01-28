@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://vtcgrh47eoy8"]
+
+[ext_resource type="Texture2D" uid="uid://ddise57fn3f83" path="res://visualAssets/pixelAssets/sprites/carSprites/redCar.png" id="2_w1sai"]
+
+[node name="regularBullet" type="CharacterBody2D" groups=["projectile"]]
+top_level = true
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_w1sai")

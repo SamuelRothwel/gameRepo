@@ -1,0 +1,21 @@
+[gd_scene load_steps=3 format=3 uid="uid://chdl5ocyqtpcw"]
+
+[ext_resource type="Script" path="res://scripts/scriptSets/spriteScripts/TestSprite.cs" id="1_xrktb"]
+[ext_resource type="Script" path="res://scripts/scriptSets/spriteScripts/GunBarrelSprite.cs" id="2_bhjef"]
+
+[node name="Sprites" type="Node"]
+
+[node name="TestEnemy" type="Node" parent="."]
+
+[node name="idle" type="Node" parent="TestEnemy"]
+script = ExtResource("1_xrktb")
+
+[node name="Minigun" type="Node" parent="."]
+
+[node name="Shoot" type="Node" parent="Minigun"]
+script = ExtResource("1_xrktb")
+
+[node name="GunBarrel" type="Node" parent="."]
+
+[node name="idle" type="Node" parent="GunBarrel"]
+script = ExtResource("2_bhjef")

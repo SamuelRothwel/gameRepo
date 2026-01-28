@@ -1,0 +1,37 @@
+[gd_scene load_steps=10 format=3 uid="uid://jbv5kd3fuh02"]
+
+[ext_resource type="PackedScene" uid="uid://nou2fkswxvvc" path="res://Scenes/setScenes/managers.tscn" id="1_bhyg4"]
+[ext_resource type="PackedScene" uid="uid://bc0874mxjw0o7" path="res://Scenes/GameScenes/MenuScene.tscn" id="3_g6dc8"]
+[ext_resource type="PackedScene" uid="uid://dfqtdx7s384vo" path="res://Scenes/GameScenes/game_scene.tscn" id="3_vnj8r"]
+[ext_resource type="PackedScene" uid="uid://dalhs1on3mcak" path="res://Scenes/UIScenes/main_menu_assets.tscn" id="4_aru5p"]
+[ext_resource type="PackedScene" uid="uid://djrn0wsekmbf4" path="res://Scenes/UIScenes/game_ui.tscn" id="6_gh26e"]
+[ext_resource type="PackedScene" uid="uid://6npwkntkdgxi" path="res://Scenes/setScenes/entities.tscn" id="6_h41vk"]
+[ext_resource type="PackedScene" uid="uid://dgrmm1owxwh5y" path="res://Scenes/UIScenes/change_controls.tscn" id="6_iv8ux"]
+[ext_resource type="PackedScene" uid="uid://ci0uwvwf41hiw" path="res://Scenes/setScenes/logic.tscn" id="7_0dbco"]
+[ext_resource type="PackedScene" uid="uid://chdl5ocyqtpcw" path="res://Scenes/setScenes/sprites.tscn" id="8_dcn70"]
+
+[node name="Node2D" type="Node2D"]
+
+[node name="managers" parent="." instance=ExtResource("1_bhyg4")]
+
+[node name="Game" type="Node" parent="." groups=["GameNode"]]
+
+[node name="GameScene" parent="Game" instance=ExtResource("3_vnj8r")]
+
+[node name="MenuScene" parent="Game" instance=ExtResource("3_g6dc8")]
+
+[node name="GameAssets" type="Node" parent="."]
+
+[node name="UIAssets" type="Node" parent="GameAssets"]
+
+[node name="MainMenuAssets" parent="GameAssets/UIAssets" instance=ExtResource("4_aru5p")]
+
+[node name="GameUI" parent="GameAssets/UIAssets" instance=ExtResource("6_gh26e")]
+
+[node name="ChangeControls" parent="GameAssets/UIAssets" instance=ExtResource("6_iv8ux")]
+
+[node name="Entities" parent="GameAssets" instance=ExtResource("6_h41vk")]
+
+[node name="Logic" parent="." instance=ExtResource("7_0dbco")]
+
+[node name="Sprites" parent="." instance=ExtResource("8_dcn70")]

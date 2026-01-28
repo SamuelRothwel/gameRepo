@@ -1,0 +1,38 @@
+[gd_scene load_steps=6 format=3 uid="uid://jbv5kd3fuh02"]
+
+[ext_resource type="Script" path="res://movement.cs" id="1_bnl6l"]
+[ext_resource type="Script" path="res://playerMovement.cs" id="1_j6jch"]
+[ext_resource type="Script" path="res://trail.gd" id="3_bhxgp"]
+
+[sub_resource type="CanvasTexture" id="CanvasTexture_dfdms"]
+
+[sub_resource type="CanvasTexture" id="CanvasTexture_au6se"]
+
+[node name="Node2D" type="Node2D"]
+
+[node name="Sprite2D2" type="Sprite2D" parent="."]
+position = Vector2(-57.25, -41.75)
+scale = Vector2(115.5, 84.5)
+texture = SubResource("CanvasTexture_dfdms")
+
+[node name="Node2D" type="Node2D" parent="Sprite2D2"]
+
+[node name="CharacterBody2D" type="CharacterBody2D" parent="."]
+position = Vector2(220, -156)
+scale = Vector2(284, 170)
+script = ExtResource("1_j6jch")
+
+[node name="Sprite2D" type="Sprite2D" parent="CharacterBody2D"]
+modulate = Color(1, 0.239216, 1, 1)
+position = Vector2(0.213028, -0.214706)
+scale = Vector2(0.573944, 0.570588)
+texture = SubResource("CanvasTexture_au6se")
+script = ExtResource("1_bnl6l")
+
+[node name="Camera2D" type="Camera2D" parent="CharacterBody2D/Sprite2D"]
+position = Vector2(-0.774648, 0.917647)
+scale = Vector2(0.00352113, 0.00588235)
+zoom = Vector2(0.3, 0.3)
+
+[node name="Line2D" type="Line2D" parent="CharacterBody2D"]
+script = ExtResource("3_bhxgp")

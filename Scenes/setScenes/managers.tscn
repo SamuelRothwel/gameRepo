@@ -1,0 +1,76 @@
+[gd_scene load_steps=23 format=3 uid="uid://nou2fkswxvvc"]
+
+[ext_resource type="Script" path="res://scripts/managerScripts/LogicManagement.cs" id="1_0nxiu"]
+[ext_resource type="Script" path="res://scripts/managerScripts/EntityManagement.cs" id="1_j3fb0"]
+[ext_resource type="Script" path="res://scripts/managerScripts/LayerManagement.cs" id="1_kv3y8"]
+[ext_resource type="Script" path="res://scripts/managerScripts/AnimationManagement.cs" id="1_wy0ue"]
+[ext_resource type="PackedScene" uid="uid://cgu8xngy42cdt" path="res://Scenes/setScenes/animations.tscn" id="2_5o3s7"]
+[ext_resource type="Script" path="res://scripts/managerScripts/sceneManagment.cs" id="2_8sw6g"]
+[ext_resource type="Script" path="res://scripts/managerScripts/UIManagement.cs" id="3_id3hb"]
+[ext_resource type="PackedScene" uid="uid://ci0uwvwf41hiw" path="res://Scenes/setScenes/logic.tscn" id="4_hjeyk"]
+[ext_resource type="PackedScene" uid="uid://dalhs1on3mcak" path="res://Scenes/UIScenes/main_menu_assets.tscn" id="4_l6aoi"]
+[ext_resource type="PackedScene" uid="uid://bc0874mxjw0o7" path="res://Scenes/GameScenes/MenuScene.tscn" id="5_fnwkc"]
+[ext_resource type="PackedScene" uid="uid://dfqtdx7s384vo" path="res://Scenes/GameScenes/game_scene.tscn" id="6_2acsn"]
+[ext_resource type="PackedScene" uid="uid://6npwkntkdgxi" path="res://Scenes/setScenes/entities.tscn" id="6_4fknq"]
+[ext_resource type="PackedScene" uid="uid://djrn0wsekmbf4" path="res://Scenes/UIScenes/game_ui.tscn" id="6_5jwad"]
+[ext_resource type="Script" path="res://scripts/managerScripts/LifetimeManagement.cs" id="11_is8of"]
+[ext_resource type="PackedScene" uid="uid://chdl5ocyqtpcw" path="res://Scenes/setScenes/sprites.tscn" id="13_0w3ej"]
+[ext_resource type="Script" path="res://scripts/managerScripts/ProjectileManagement.cs" id="13_ejdqt"]
+[ext_resource type="Script" path="res://scripts/managerScripts/SpriteManagement.cs" id="16_gl3df"]
+[ext_resource type="Script" path="res://scripts/managerScripts/GameManagement.cs" id="18_m1s72"]
+[ext_resource type="Script" path="res://scripts/managerScripts/DamageManagement.cs" id="19_02thw"]
+[ext_resource type="Script" path="res://scripts/managerScripts/InputManagement.cs" id="19_xrkr1"]
+[ext_resource type="Script" path="res://scripts/managerScripts/UnitManagement.cs" id="20_473qp"]
+[ext_resource type="Script" path="res://scripts/managerScripts/TeamManagement.cs" id="21_reklc"]
+
+[node name="managers" type="Node"]
+
+[node name="GameManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("18_m1s72")
+
+[node name="DamageManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("19_02thw")
+
+[node name="AnimationManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("1_wy0ue")
+packedAnimations = ExtResource("2_5o3s7")
+
+[node name="LogicManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("1_0nxiu")
+packedLogicScene = ExtResource("4_hjeyk")
+
+[node name="EntityManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("1_j3fb0")
+entitiesScene = ExtResource("6_4fknq")
+
+[node name="LayerManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("1_kv3y8")
+
+[node name="UIManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("3_id3hb")
+MainMenu = ExtResource("4_l6aoi")
+GameUI = ExtResource("6_5jwad")
+
+[node name="UnitManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("20_473qp")
+
+[node name="TeamManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("21_reklc")
+
+[node name="LifetimeManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("11_is8of")
+
+[node name="SpriteManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("16_gl3df")
+packedSpriteMaps = ExtResource("13_0w3ej")
+
+[node name="ProjectileManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("13_ejdqt")
+
+[node name="InputManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("19_xrkr1")
+
+[node name="SceneManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("2_8sw6g")
+menuScene = ExtResource("5_fnwkc")
+gameScene = ExtResource("6_2acsn")

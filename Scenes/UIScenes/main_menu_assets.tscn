@@ -1,0 +1,42 @@
+[gd_scene load_steps=3 format=3 uid="uid://dalhs1on3mcak"]
+
+[ext_resource type="FontFile" uid="uid://byl0mlh7fn6it" path="res://visualAssets/Fonts/Xirod.otf" id="1_x5if7"]
+[ext_resource type="Script" path="res://scripts/UIScripts/StartButton.cs" id="2_5cfns"]
+
+[node name="MainMenuAssets" type="Node"]
+
+[node name="StartButton" type="Button" parent="."]
+offset_left = 546.0
+offset_top = 546.0
+offset_right = 699.0
+offset_bottom = 594.0
+theme_override_fonts/font = ExtResource("1_x5if7")
+text = "START"
+script = ExtResource("2_5cfns")
+
+[node name="ExitButton" type="Button" parent="."]
+offset_left = 896.0
+offset_top = 539.0
+offset_right = 1049.0
+offset_bottom = 587.0
+theme_override_fonts/font = ExtResource("1_x5if7")
+text = "EXit"
+script = ExtResource("2_5cfns")
+
+[node name="TestButton" type="Button" parent="."]
+offset_left = 713.0
+offset_top = 543.0
+offset_right = 866.0
+offset_bottom = 591.0
+theme_override_fonts/font = ExtResource("1_x5if7")
+text = "TEST"
+script = ExtResource("2_5cfns")
+
+[node name="SettingsButton" type="Button" parent="."]
+offset_left = 366.0
+offset_top = 545.0
+offset_right = 519.0
+offset_bottom = 593.0
+theme_override_fonts/font = ExtResource("1_x5if7")
+text = "Settings"
+script = ExtResource("2_5cfns")
