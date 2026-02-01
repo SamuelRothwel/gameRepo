@@ -16,7 +16,9 @@ namespace coolbeats.scripts.managerScripts
         public team[] teams;
         public override void setup()
         {
-            teams = new team[] {new team()};
+            teams = new team[] {new team(), new team()};
+            teams[0].enemies = new team[] {teams[1]};
+            teams[1].enemies = new team[] {teams[0]};
         }
         public team GetTeam(Guid ID)
         {
@@ -86,45 +88,49 @@ namespace coolbeats.scripts.managerScripts
                 }
             }
         }
-        public void searchBVH(tree<Guid, (float, float, float, float)> BVH, ref List<Guid> output, Godot.Vector2 coords, float radius)
+        public List<Guid> searchTeams(team[] t, (float, float, float, float) minMax)
         {
-            float minX = coords.X - radius;
-            float maxX = coords.X + radius;
-            float minY = coords.Y - radius;
-            float maxY = coords.Y + radius;
-            if ((!(BVH.Value.Item1 < minX && BVH.Value.Item1 < maxX) || 
-            !(BVH.Value.Item2 > minX && BVH.Value.Item2 > maxX)) && 
-            (!(BVH.Value.Item3 < minY && BVH.Value.Item3 < maxY) || 
-            !(BVH.Value.Item4 > minY && BVH.Value.Item4 > maxY))) {
-                foreach (KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> branch in BVH)
+            List<Guid> units = new List<Guid>();
+            foreach (team enemy in t)
+            {
+                searchBVH(enemy.BVH, ref units, minMax);
+            }
+            return units;
+        }
+        public List<Guid> searchBVH(tree<Guid, (float, float, float, float)> BVH, (float, float, float, float) minMax)
+        {
+            List<Guid> output = new List<Guid>();
+            searchBVH(BVH, ref output, minMax);
+            return output;
+        }
+        public void searchBVH(tree<Guid, (float, float, float, float)> tree, ref List<Guid> output, (float, float, float, float) minMax)
+        {
+            if ((!(tree.Value.Item1 < minMax.Item1 && tree.Value.Item1 < minMax.Item3) && 
+            !(tree.Value.Item2 > minMax.Item1 && tree.Value.Item2 > minMax.Item3)) && 
+            (!(tree.Value.Item3 < minMax.Item2 && tree.Value.Item3 < minMax.Item4) && 
+            !(tree.Value.Item4 > minMax.Item2 && tree.Value.Item4 > minMax.Item4))) {
+                foreach (KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> branch in tree)
                 {
-                    searchBVH(branch, ref output, minX, minY, maxX, maxY);
+                    searchBVH(branch, ref output, minMax);
                 }
             }
         }
-        public void searchBVH(tree<Guid, (float, float, float, float)> BVH, ref List<Guid> output, float minX, float minY, float maxX, float maxY)
+        public void searchBVH(KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> pair, ref List<Guid> output, (float, float, float, float) minMax)
         {
-            foreach (KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> branch in BVH)
+            tree<Guid, (float, float, float, float)> BVH = pair.Value;
+            if ((!(BVH.Value.Item1 < minMax.Item1 && BVH.Value.Item1 < minMax.Item3) && 
+            !(BVH.Value.Item2 > minMax.Item1 && BVH.Value.Item2 > minMax.Item3)) && 
+            (!(BVH.Value.Item3 < minMax.Item2 && BVH.Value.Item3 < minMax.Item4) && 
+            !(BVH.Value.Item4 > minMax.Item2 && BVH.Value.Item4 > minMax.Item4)))
             {
-                searchBVH(branch, ref output, minX, minY, maxX, maxY);
-            }
-        }
-        public void searchBVH(KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> pair, ref List<Guid> output, float minX, float minY, float maxX, float maxY)
-        {
-            tree<Guid, (float, float, float, float)> Tree = pair.Value;
-            if ((!(Tree.Value.Item1 < minX && Tree.Value.Item1 < maxX) && 
-            !(Tree.Value.Item2 > minX && Tree.Value.Item2 > maxX)) && 
-            (!(Tree.Value.Item3 < minY && Tree.Value.Item3 < maxY) && 
-            !(Tree.Value.Item4 > minY && Tree.Value.Item4 > maxY)))
-            {
-                if (!Tree.Any())
+                if (!BVH.Any())
                 {
                     output.Add(pair.Key);
                 }  else
                 {
-                    foreach (KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> branch in Tree)
+                    foreach (KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> branch in BVH)
                     {
-                        searchBVH(branch, ref output, minX, minY, maxX, maxY);
+                        searchBVH(branch, ref output, minMax);
                     }
                 }
             }
@@ -135,10 +141,12 @@ namespace coolbeats.scripts.managerScripts
             foreach (Guid u in unitList)
             {
                 unitControler unit = mAccess.unitManager.units[u];
+                GD.Print(unit.ID);
                 encodings.Add((MortenEncoding.encode((uint)unit.Position.X, (uint)unit.Position.Y), unit.ID));
             }
             return encodings.OrderBy(x => x.Item1).Select(x => x.Item2).ToArray();
         }
+        
         public tree<Guid, (float, float, float, float)> createBVH(ref Guid[] list, bool detectors = false)
         {
             tree<Guid, (float, float, float, float)> Tree = new tree<Guid, (float, float, float, float)>();

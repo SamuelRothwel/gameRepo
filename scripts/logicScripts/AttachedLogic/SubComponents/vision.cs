@@ -19,7 +19,7 @@ namespace coolbeats.scripts.logicScripts.AttachedLogic.SubComponents
         public Guid? scan(float range)
         {
             List<Guid> possibleTargets = new List<Guid>();
-            mAccess.teamManager.searchBVH(mAccess.teamManager.GetTeam(parent.controler.ID).targetBVH, ref possibleTargets, parent.self.Position, range);
+            mAccess.teamManager.searchBVH(mAccess.teamManager.GetTeam(parent.controler.ID).targetBVH, ref possibleTargets, math.getMinMax(parent.self.Position, range));
             Guid? output = null;
             foreach (Guid target in possibleTargets)
             {

@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/units/marine.cs" id="1_05gri"]
 [ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/Components/componentGun.cs" id="2_yd4hj"]
 [ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/SubComponents/vision.cs" id="3_2kdfe"]
-[ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/Gun.cs" id="4_hkbhc"]
+[ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/SubComponents/Gun.cs" id="4_q1cou"]
 [ext_resource type="Texture2D" uid="uid://ddise57fn3f83" path="res://visualAssets/pixelAssets/sprites/carSprites/redCar.png" id="5_g6suf"]
 [ext_resource type="Texture2D" uid="uid://dxg1rtfqapx5l" path="res://visualAssets/pixelAssets/Animations/Minigun/shootMinigun/2.png" id="6_varar"]
 [ext_resource type="AudioStream" uid="uid://bso0swmdrrama" path="res://AudioAssets/metalPipe.mp3" id="7_u8mcu"]
@@ -47,6 +47,7 @@ _data = {
 }
 
 [node name="marine" type="Node2D"]
+position = Vector2(100, 10)
 script = ExtResource("1_05gri")
 
 [node name="componentGun" type="Node2D" parent="."]
@@ -57,7 +58,7 @@ script = ExtResource("3_2kdfe")
 
 [node name="Gun" type="Node2D" parent="componentGun" groups=["+1", "wheel"]]
 position = Vector2(14.5, -10.5)
-script = ExtResource("4_hkbhc")
+script = ExtResource("4_q1cou")
 
 [node name="animator" type="AnimationPlayer" parent="componentGun/Gun" groups=["GunAnimations"]]
 root_node = NodePath("../..")

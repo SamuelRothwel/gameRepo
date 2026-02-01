@@ -1,3 +1,10 @@
-[gd_scene format=3 uid="uid://djrn0wsekmbf4"]
+[gd_scene load_steps=2 format=3 uid="uid://djrn0wsekmbf4"]
+
+[ext_resource type="Script" path="res://Scenes/UIScenes/unitAbilities.cs" id="1_1x27m"]
 
 [node name="GameUI" type="Node"]
+
+[node name="GridContainer" type="GridContainer" parent="."]
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("1_1x27m")

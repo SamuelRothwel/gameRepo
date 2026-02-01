@@ -4,17 +4,19 @@ using System.Collections.Generic;
 
 public partial class UIManagement : managerNode
 {
-	[Export] public PackedScene MainMenu;
-	[Export] public PackedScene GameUI;
 	Node CurrentUI;
-	public Dictionary<string, PackedScene> scenes;
+	public Dictionary<string, PackedScene> scenes = new Dictionary<string, PackedScene>();
+	[Export] public PackedScene UIScene;
+	
 	public override void setup()
 	{
-		scenes = new Dictionary<string, PackedScene>
+		Godot.Collections.Array<Node> entities = UIScene.Instantiate().GetChildren();
+		foreach (Node entity in entities)
 		{
-			{ "main", MainMenu },
-			{ "game", GameUI }
-		};
+			PackedScene packedEntity = new PackedScene();
+			packedEntity.Pack(entity);
+			scenes.Add(entity.Name, packedEntity);
+		}
 		changeUI("main");
 	}
 	public void changeUI(string name)
@@ -23,6 +25,7 @@ public partial class UIManagement : managerNode
 		{
 			CurrentUI.QueueFree();
 		}
+		GD.Print();
 		CurrentUI = scenes[name].Instantiate();
 		AddChild(CurrentUI);
 	}

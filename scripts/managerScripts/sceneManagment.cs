@@ -1,3 +1,4 @@
+using coolbeats.scripts.managerScripts;
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -32,9 +33,12 @@ public partial class sceneManagment : managerNode
 		GetTree().ChangeSceneToPacked(gameScene);
 		inGame = true;
 		mAccess.unitManager.createUnit("marine", 0);
+		mAccess.unitManager.createUnit("marine", 1);
 		mAccess.uiManager.changeUI("game");
 		mAccess.entityManager.spawnEntity("player");
 		mAccess.entityManager.spawnEntity("playerCamera");
+		
+        mAccess.teamManager.UpdateTeamVisions();
 	}
 	public void startMenu()
 	{

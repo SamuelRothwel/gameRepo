@@ -1,0 +1,13 @@
+[gd_scene load_steps=4 format=3 uid="uid://bhb8es5j737ax"]
+
+[ext_resource type="PackedScene" uid="uid://dalhs1on3mcak" path="res://Scenes/UIScenes/main_menu_assets.tscn" id="1_ucse1"]
+[ext_resource type="PackedScene" uid="uid://djrn0wsekmbf4" path="res://Scenes/UIScenes/game_ui.tscn" id="2_yxlt8"]
+[ext_resource type="PackedScene" uid="uid://dgrmm1owxwh5y" path="res://Scenes/UIScenes/change_controls.tscn" id="3_pfa7f"]
+
+[node name="UIAssets" type="Node"]
+
+[node name="main" parent="." instance=ExtResource("1_ucse1")]
+
+[node name="game" parent="." instance=ExtResource("2_yxlt8")]
+
+[node name="controls" parent="." instance=ExtResource("3_pfa7f")]

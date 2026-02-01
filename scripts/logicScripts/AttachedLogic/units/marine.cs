@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Runtime;
 using System.Threading.Tasks;
+using coolbeats.scripts.logicScripts.AttachedLogic.Components;
 using coolbeats.scripts.managerScripts;
 using Godot;
 
@@ -9,50 +12,174 @@ namespace coolbeats.scripts.logicScripts.AttachedLogic.units
 {
     public partial class marine : unitControler
     {
+        bool attackTarget;
+        bool chaseTarget;
+        bool scanForChase;
+        bool scanForAttack;
+        public Queue<command> commandList = new Queue<command>();
+        command activeCommand;
+        float attackRange;
+        float speed;
         public marine()
         {
-            state = "idle";
-            type = "test";
+            type = "attacker";
             radius = 1;
-            detectionRadius = 8;
+            detectionRadius = 80000;
+            attackRange = 500;
+            speed = 1;
+            sendCommand(new command("idle"));
         }
+        public override void _Process(double delta)
+        {
+            if (scanForAttack)
+            {
+                bool stationaryAttack = false;
+                foreach (componentGun gun in components.Get<componentGun>())
+                {
+                    if (gun.scan())
+                    {
+                        stationaryAttack = true;
+                    }
+                }
+                if (stationaryAttack)
+                {
+                    goto end;
+                }
+            }
+            if (scanForChase)
+            {
+                Guid? target = scanTargets(attackRange);
+                if (target != null)
+                {
+                    move(mAccess.unitManager.units[(Guid)target].Position);
+                    goto end;
+                }
+            }
+            if (attackTarget)
+            {
+                if (Position.DistanceTo(mAccess.unitManager.units[(Guid)activeCommand.unit].Position) < attackRange)
+                {
+                    attack((Guid)activeCommand.unit);
+                    goto end;
+                }
+            }
+            if (chaseTarget)
+            {
+                if (activeCommand.unit != Guid.Empty)
+                {
+                    move(mAccess.unitManager.units[(Guid)activeCommand.unit].Position);
+                }
+                else
+                {
+                    move(activeCommand.coordinates);
+                }
+            }
+            end:;
+        }
+        public void Next()
+        {
+            if (commandList.Any())
+            {
+                command(commandList.Dequeue());
+            }
+            else
+            {
+                command(new command("idle"));
+            }
+        }
+        public override void queueCommand(command com)
+        {
+            if (activeCommand.state == "idle")
+            {
+                command(com);
+            } else
+            {
+                commandList.Enqueue(com);
+            }
+        }
+        
         public override void sendCommand(command com)
         {
-            state = com.state;
-            switch(state) {
-                case "idle":
-                    idle();
-                    break;
+            commandList.Clear();
+            command(com);
+        }
+        public void command(command com)
+        {
+            activeCommand = com;
+            switch(com.state) {
                 case "move":
-                    move(com.coordinates?? new Vector2());
+                    attackTarget = false;
+                    chaseTarget = true;
+                    scanForChase = false;
+                    scanForAttack = false;
                     break;
                 case "attack":
-                    attack(com.unit?? new Guid());
+                    attackTarget = true;
+                    chaseTarget = true;
+                    scanForChase = false;
+                    scanForAttack = false;
+                    break;
+                case "idle":
+                    attackTarget = false;
+                    chaseTarget = false;
+                    scanForChase = true;
+                    scanForAttack = true;
+                    break;
+                case "holdPosition":
+                    attackTarget = true;
+                    chaseTarget = false;
+                    scanForChase = false;
+                    scanForAttack = true;
+                    break;
+                case "attackMove":
+                    attackTarget = true;
+                    chaseTarget = true;
+                    scanForChase = true;
+                    scanForAttack = true;
                     break;
                 default:
                     GD.Print("Invalid State: ", com.state);
                     break;
             }
         }
-        public void idle()
+        public void chase()
         {
-            foreach(componentController weapon in components["weapon"])
-            {
-                weapon.state = "scan";
-            }
+            
         }
-        public void move(Vector2 coords)
+        public void move(Vector2 targetPosition)
         {
-            foreach(componentController weapon in components["weapon"])
+            Position += (targetPosition - Position).Normalized()*speed*10;
+            if (Position.DistanceTo(targetPosition) < 10)
             {
-                weapon.state = "idle";
+                Next();
+            }
+            foreach(componentGun weapon in components.Get<componentGun>())
+            {
+                weapon.subComponents.Get<Gun>().shooting = false;
             }
         }
         public void attack(Guid target) {
-            foreach(componentController weapon in components["weapon"])
+            foreach(componentGun weapon in components.Get<componentGun>())
             {
-                weapon.state = "target";
+                weapon.target(target);
             }
+        }
+        public Guid? scanTargets(float range)
+        {
+            Guid? target = null;
+            List<Guid> potentialTargets = mAccess.teamManager.searchTeams(mAccess.teamManager.GetTeam(ID).enemies, math.getMinMax(Position, range));
+            float smallest = range;
+            foreach (Guid potentialTarget in potentialTargets)
+            {
+                unitControler unit = mAccess.unitManager.units[potentialTarget];
+                float distance = Position.DistanceTo(unit.Position);
+                if (distance < smallest)
+                {
+                    smallest = distance;
+                    target = potentialTarget;
+                }
+            }
+            return target;
         }
     }
 }

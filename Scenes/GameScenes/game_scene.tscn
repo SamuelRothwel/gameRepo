@@ -1,3 +1,7 @@
 [gd_scene format=3 uid="uid://dfqtdx7s384vo"]
 
 [node name="GameScene" type="Node"]
+
+[node name="GridContainer" type="GridContainer" parent="."]
+offset_right = 40.0
+offset_bottom = 40.0

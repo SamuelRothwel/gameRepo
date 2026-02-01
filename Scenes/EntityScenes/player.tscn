@@ -1,9 +1,8 @@
-[gd_scene load_steps=9 format=3 uid="uid://d8se50ch7t1a"]
+[gd_scene load_steps=8 format=3 uid="uid://d8se50ch7t1a"]
 
 [ext_resource type="Texture2D" uid="uid://ddise57fn3f83" path="res://visualAssets/pixelAssets/sprites/carSprites/redCar.png" id="1_q11e3"]
 [ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/movement.cs" id="2_ssur2"]
 [ext_resource type="Texture2D" uid="uid://dxg1rtfqapx5l" path="res://visualAssets/pixelAssets/Animations/Minigun/shootMinigun/2.png" id="3_6kx7t"]
-[ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/Gun.cs" id="4_na7cq"]
 [ext_resource type="AudioStream" uid="uid://bso0swmdrrama" path="res://AudioAssets/metalPipe.mp3" id="5_wy4yo"]
 [ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/GunBarrel.cs" id="6_7sa5q"]
 
@@ -52,7 +51,6 @@ script = ExtResource("2_ssur2")
 
 [node name="Gun" type="Node2D" parent="." groups=["+1", "wheel"]]
 position = Vector2(14.5, -10.5)
-script = ExtResource("4_na7cq")
 
 [node name="animator" type="AnimationPlayer" parent="Gun" groups=["GunAnimations"]]
 root_node = NodePath("../..")

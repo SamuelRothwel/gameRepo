@@ -10,6 +10,10 @@ public static class math
 	{
 		return (MathF.Min(p1.X, p2.X), MathF.Min(p1.Y, p2.Y), MathF.Max(p1.X, p2.X), MathF.Max(p1.Y, p2.Y));
 	}
+	public static (float, float, float, float) getMinMax(Vector2 p, float radius)
+	{
+		return (p.X - radius, p.Y - radius, p.X + radius, p.Y + radius);
+	}
 	public static Vector2 createVector(float velocity, float angle, bool degrees = false)
 	{
 		if (degrees)

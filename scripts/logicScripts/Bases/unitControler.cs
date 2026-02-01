@@ -10,27 +10,23 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 public partial class unitControler : Node2D
 {
-    public Guid ID = new Guid();
+    public Guid ID = Guid.NewGuid();
     public float radius;
-    public string state { get; set; }
     public int priority;
     public float detectionRadius;
     public string type;
-    public Dictionary<string, List<componentController>> components { get; set; }
+    public multiTypeRegistry<componentController> components { get; set; }
     public virtual void sendCommand(command value) {}
+    public virtual void queueCommand(command value) {}
     public override void _Ready()
     {
-        components = new Dictionary<string, List<componentController>>();
+        components = new multiTypeRegistry<componentController>();
         IEnumerable<componentController> componentList = GetChildren().OfType<componentController>();
         foreach (componentController component in componentList)
         {
             component.subComponents = new TypeRegistry<subComponent>();
             component.controler = this;
-            if (!components.ContainsKey(component.type))
-            {
-                components[component.type] = new List<componentController>();
-            }
-            components[component.type].Add(component);
+            components.Register(component, component.type);
             IEnumerable<subComponent> subComponents = component.self.GetChildren().OfType<subComponent>(); 
             foreach (subComponent sub in subComponents)
             {
