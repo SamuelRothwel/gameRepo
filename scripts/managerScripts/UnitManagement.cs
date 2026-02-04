@@ -16,10 +16,11 @@ namespace coolbeats.scripts.managerScripts
         {
             _commandSets = new List<(string, (string, (Key, string[], string)[]))>();
             commandSets = new Dictionary<string, (int, Dictionary<Key, (string[], string)>)>();
-
+            _commandSets.Add(("", ("", new (Godot.Key, string[], string)[0])));
             _commandSets.Add(("commandable", ("", new (Godot.Key, string[], string)[] {(Key.Backspace, new string[] {"active"}, "idle")} )));
             _commandSets.Add(("rallyable", ("commandable", new (Godot.Key, string[], string)[] {(Key.None, new string[] {"ground", "team", "ally", "enemy"}, "move"), (Key.P, new string[] {"ground", "team", "ally", "enemy"}, "patrol"), (Key.H, new string[] {"active"}, "holdPosition")})));
             _commandSets.Add(("attacker", ("rallyable", new (Godot.Key, string[], string)[] { (Key.A,  new string[] {"ground"}, "attackMove")} )));
+            _commandSets.Add(("barracks", ("commandable", new (Godot.Key, string[], string)[] { (Key.A,  new string[] {"active"}, "train")} )));
             for (int i = 0; i < _commandSets.Count; i++)
             {
                 (string, (string, (Godot.Key, string[], string)[])) set = _commandSets[i];

@@ -3,8 +3,8 @@
 [ext_resource type="Texture2D" uid="uid://ddise57fn3f83" path="res://visualAssets/pixelAssets/sprites/carSprites/redCar.png" id="1_q11e3"]
 [ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/movement.cs" id="2_ssur2"]
 [ext_resource type="Texture2D" uid="uid://dxg1rtfqapx5l" path="res://visualAssets/pixelAssets/Animations/Minigun/shootMinigun/2.png" id="3_6kx7t"]
+[ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/AttachedSprites/GunBarrel.cs" id="5_q8ye6"]
 [ext_resource type="AudioStream" uid="uid://bso0swmdrrama" path="res://AudioAssets/metalPipe.mp3" id="5_wy4yo"]
-[ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/GunBarrel.cs" id="6_7sa5q"]
 
 [sub_resource type="Animation" id="Animation_8fsmh"]
 resource_name = "test"
@@ -62,10 +62,10 @@ libraries = {
 visible = false
 
 [node name="barrel1" type="Sprite2D" parent="Gun"]
-script = ExtResource("6_7sa5q")
+script = ExtResource("5_q8ye6")
 
 [node name="barrel2" type="Sprite2D" parent="Gun"]
-script = ExtResource("6_7sa5q")
+script = ExtResource("5_q8ye6")
 
 [node name="barrel3" type="Sprite2D" parent="Gun"]
-script = ExtResource("6_7sa5q")
+script = ExtResource("5_q8ye6")

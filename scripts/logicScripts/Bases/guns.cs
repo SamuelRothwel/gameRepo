@@ -47,7 +47,7 @@ public class gunTemplate
 	}
 	public virtual void spawnBullet(Gun gun)
 	{
-		projectile bullet = mAccess.projectileManager.fire(bulletType, gun.GlobalPosition, (gun.GetParent() as Node2D).Rotation - 0.5f * math.PI + math.randomFloat(-0.0087, 0.0087) * spread);
+		projectile bullet = mAccess.projectileManager.fire(bulletType, gun.GlobalPosition, (gun.GetParent() as Node2D).GlobalRotation - 0.5f * math.PI + math.randomFloat(-0.0087, 0.0087) * spread);
 		gun.AddChild(bullet);
 	}
 	public virtual bool hasHeat { get; set; } = true;

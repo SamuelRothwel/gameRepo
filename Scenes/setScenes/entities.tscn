@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 uid="uid://6npwkntkdgxi"]
+[gd_scene load_steps=11 format=3 uid="uid://6npwkntkdgxi"]
 
 [ext_resource type="PackedScene" uid="uid://d8se50ch7t1a" path="res://Scenes/EntityScenes/player.tscn" id="1_bghh0"]
 [ext_resource type="PackedScene" uid="uid://b0w5xf63kl6ma" path="res://Scenes/EntityScenes/projectile.tscn" id="2_gx7hh"]
@@ -8,6 +8,8 @@
 [ext_resource type="PackedScene" uid="uid://bvhvjcbx7cotp" path="res://Scenes/EntityScenes/player_camera.tscn" id="6_4oytr"]
 [ext_resource type="PackedScene" uid="uid://ccjbmt3ef7jip" path="res://Scenes/EntityScenes/pen.tscn" id="7_8fvkn"]
 [ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/pen.cs" id="8_cexfp"]
+[ext_resource type="PackedScene" uid="uid://8ftd7vmagj36" path="res://barracks.tscn" id="9_lrw72"]
+[ext_resource type="PackedScene" uid="uid://bdhrwspw8mtwn" path="res://health_bar.tscn" id="10_3bdcj"]
 
 [node name="Entities" type="Node"]
 
@@ -27,3 +29,8 @@
 
 [node name="pen" parent="." instance=ExtResource("7_8fvkn")]
 script = ExtResource("8_cexfp")
+
+[node name="barracks" parent="." instance=ExtResource("9_lrw72")]
+position = Vector2(-100, 100)
+
+[node name="healthBar" parent="." instance=ExtResource("10_3bdcj")]

@@ -34,10 +34,10 @@ public partial class sceneManagment : managerNode
 		inGame = true;
 		mAccess.unitManager.createUnit("marine", 0);
 		mAccess.unitManager.createUnit("marine", 1);
+		mAccess.unitManager.createUnit("barracks", 0);
+		mAccess.unitManager.createUnit("marine", 1);
 		mAccess.uiManager.changeUI("game");
-		mAccess.entityManager.spawnEntity("player");
 		mAccess.entityManager.spawnEntity("playerCamera");
-		
         mAccess.teamManager.UpdateTeamVisions();
 	}
 	public void startMenu()

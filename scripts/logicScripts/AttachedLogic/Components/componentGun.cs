@@ -18,13 +18,10 @@ namespace coolbeats.scripts.logicScripts.AttachedLogic.Components
 
         public Type type => typeof(componentGun);
         Guid? currentTarget = null;
-        public float range = 100000;
-        public bool scan()
+        public float range = 300;
+        public Guid? scan()
         {
-            GD.Print("peakaboo");
             List<Guid> targets = mAccess.teamManager.searchBVH(mAccess.teamManager.GetTeam(controler.ID).targetBVH, math.getMinMax(Position, range));
-            
-            GD.Print("peakaboo");
             if (targets.Any())
             {
                 Guid? target = null;
@@ -41,22 +38,20 @@ namespace coolbeats.scripts.logicScripts.AttachedLogic.Components
                         distance < smallest 
                         || priority > currentPriority) && canTarget(potentialTarget))
                         {
-                            target = currentTarget;
+                            target = potentialTarget;
                             currentPriority = priority;
                             smallest = distance;
                         }
                     } 
                     else
                     {
-                        GD.Print(potentialTarget, targetPriority(potentialTarget), currentPriority, canTarget(currentTarget));
-                        GD.Print(potentialTarget == currentTarget && canTarget(currentTarget), targetPriority(potentialTarget) > currentPriority && canTarget(potentialTarget));
                         if (potentialTarget == currentTarget && canTarget(currentTarget))
                         {
-                            target = currentTarget;
+                            target = potentialTarget;
                         }
                         else if (targetPriority(potentialTarget) > currentPriority && canTarget(potentialTarget))
                         {
-                            target = currentTarget;
+                            target = potentialTarget;
                             smallest = Position.DistanceTo(mAccess.unitManager.units[potentialTarget].Position);
                             higherPriority = true;
                         }
@@ -66,19 +61,18 @@ namespace coolbeats.scripts.logicScripts.AttachedLogic.Components
                 if (target == null)
                 {
                     subComponents.Get<Gun>().shooting = false;
-                    return false;
+                    return currentTarget;
                 } else
                 {
-                    GD.Print("target locked");
                     subComponents.Get<Gun>().shooting = true;
-                    return true;
+                    return currentTarget;
                 }
             }
             else
             {
-                GD.Print("repbozo");
+                currentTarget = null;
                 subComponents.Get<Gun>().shooting = false;
-                return false;
+                return currentTarget;
             }
         }
         public int targetPriority(Guid? targetID)
@@ -98,7 +92,6 @@ namespace coolbeats.scripts.logicScripts.AttachedLogic.Components
             {
                 return false;
             } 
-            GD.Print(Position.DistanceTo(mAccess.unitManager.units[(Guid)targetID].Position));
             return Position.DistanceTo(mAccess.unitManager.units[(Guid)targetID].Position) < range;
         }
         public void target(Guid ID)

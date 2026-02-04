@@ -19,7 +19,7 @@ namespace coolbeats.scripts.managerScripts
         public Camera2D camera;
         Rect2 selectBox;
         pen pen;
-        List<Guid> selectedUnits;
+        List<Guid> selectedUnits = new List<Guid>();
         Dictionary<string, List<Guid>> selectedTypes;
         public event EventHandler unitSelected;
         string _selectedType;
@@ -67,7 +67,7 @@ namespace coolbeats.scripts.managerScripts
                     }
                     if (selecting)
                     {
-                        pen.drawRectangle(startSelect*camera.Scale + cameraOffset, motion.Position*camera.Scale + cameraOffset);
+                        pen.drawRectangle(scaleCoords(startSelect), scaleCoords(motion.Position));
                     }
                 }
                 else if (inp is InputEventMouseButton mouse)
@@ -94,13 +94,19 @@ namespace coolbeats.scripts.managerScripts
                                     {
                                         selecting = false;
                                         mAccess.teamManager.UpdateTeamVisions();
+                                        for (int i = 0; i < selectedUnits.Count; i++)
+                                        {
+                                            mAccess.unitManager.units[selectedUnits[i]].selected = false;
+                                        }
                                         selectedUnits = new List<Guid>();
                                         mAccess.teamManager.searchBVH(activeTeam.BVH, ref selectedUnits, math.getMinMax(scaleCoords(startSelect), scaleCoords(mouse.GlobalPosition)));
                                         int maxPriority = 0;
                                         selectedTypes = new Dictionary<string, List<Guid>>();
+                                        string newSelectedType = "";
                                         for (int i = 0; i < selectedUnits.Count; i++)
                                         {
                                             unitControler unit = mAccess.unitManager.units[selectedUnits[i]];
+                                            unit.selected = true;
                                             if (!selectedTypes.ContainsKey(unit.type))
                                             {
                                                 selectedTypes[unit.type] = new List<Guid>();
@@ -108,9 +114,10 @@ namespace coolbeats.scripts.managerScripts
                                             selectedTypes[unit.type].Add(unit.ID);
                                             if (maxPriority < unit.priority)
                                             {
-                                                selectedType = unit.type;
+                                                newSelectedType = unit.type;
                                             }
                                         }
+                                        selectedType = newSelectedType;
                                         pen.erase();
                                     }
                                 }
@@ -174,13 +181,10 @@ namespace coolbeats.scripts.managerScripts
                 switch (target)
                 {
                     case "ground":
-                    GD.Print("mouse at", position);
                         com.coordinates = position;
                         break;
                     case "team":
-                        GD.Print("num", targets.Count());
                         mAccess.teamManager.searchBVH(activeTeam.BVH, ref targets, math.getMinMax(position, 0));
-                        GD.Print("numm", targets.Count());
                         break;
                     case "ally":
                         foreach (team ally in activeTeam.allies)

@@ -16,18 +16,17 @@ namespace coolbeats.scripts.logicScripts.AttachedLogic.units
         bool chaseTarget;
         bool scanForChase;
         bool scanForAttack;
-        public Queue<command> commandList = new Queue<command>();
-        command activeCommand;
         float attackRange;
         float speed;
         public marine()
         {
             type = "attacker";
-            radius = 1;
-            detectionRadius = 80000;
-            attackRange = 500;
+            radius = 30;
+            detectionRadius = 150;
             speed = 1;
+            maxHP = 50;
             sendCommand(new command("idle"));
+            QueueRedraw();
         }
         public override void _Process(double delta)
         {
@@ -36,14 +35,16 @@ namespace coolbeats.scripts.logicScripts.AttachedLogic.units
                 bool stationaryAttack = false;
                 foreach (componentGun gun in components.Get<componentGun>())
                 {
-                    if (gun.scan())
+                    Guid? target = gun.scan();
+                    if (target != null)
                     {
                         stationaryAttack = true;
+                        Rotate(GetAngleTo(mAccess.unitManager.units[(Guid)target].Position)+math.PI/2);
                     }
                 }
                 if (stationaryAttack)
                 {
-                    goto end;
+                    //goto end;
                 }
             }
             if (scanForChase)
@@ -76,22 +77,22 @@ namespace coolbeats.scripts.logicScripts.AttachedLogic.units
             }
             end:;
         }
-        public void Next()
+        public override void Next()
         {
             if (commandList.Any())
             {
-                command(commandList.Dequeue());
+                activateCommand(commandList.Dequeue());
             }
             else
             {
-                command(new command("idle"));
+                activateCommand(new command("idle"));
             }
         }
         public override void queueCommand(command com)
         {
             if (activeCommand.state == "idle")
             {
-                command(com);
+                activateCommand(com);
             } else
             {
                 commandList.Enqueue(com);
@@ -101,9 +102,9 @@ namespace coolbeats.scripts.logicScripts.AttachedLogic.units
         public override void sendCommand(command com)
         {
             commandList.Clear();
-            command(com);
+            activateCommand(com);
         }
-        public void command(command com)
+        public override void activateCommand(command com)
         {
             activeCommand = com;
             switch(com.state) {
@@ -148,7 +149,8 @@ namespace coolbeats.scripts.logicScripts.AttachedLogic.units
         }
         public void move(Vector2 targetPosition)
         {
-            Position += (targetPosition - Position).Normalized()*speed*10;
+            Rotate(GetAngleTo(targetPosition)+math.PI/2);
+            Position += (targetPosition - Position).Normalized()*speed*2;
             if (Position.DistanceTo(targetPosition) < 10)
             {
                 Next();
