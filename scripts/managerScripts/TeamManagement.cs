@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Numerics;
 using System.Security.Permissions;
@@ -54,9 +55,9 @@ namespace coolbeats.scripts.managerScripts
                 for (int j = 0; j < teams[i].enemies.Length; j++)
                 {
                     List<Guid> output = new List<Guid>();
-                    twinTraversal(
-                        new KeyValuePair<Guid, tree<Guid, (float, float, float, float)>>(new Guid(), t.enemies[j].BVH), 0, 
-                        new KeyValuePair<Guid, tree<Guid, (float, float, float, float)>>(new Guid(), t.detectorBVH), 0, ref output);
+                    splitTwinTraversal(
+                        t.enemies[j].BVH, 
+                        t.detectorBVH, ref output);
                     t.visibleEnemies.AddRange(output);
                 }
                 Guid[] encodings = createEncodings(t.visibleEnemies);
@@ -69,61 +70,58 @@ namespace coolbeats.scripts.managerScripts
                 GD.Print("haaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaah");
             }
         }
-        public void splitTwinTraversal(tree<Guid, (float, float, float, float)> Tree1, tree<Guid, (float, float, float, float)> Tree2, ref List<Guid> output)
+        public void splitTwinTraversal(treeBinary<(Guid, (float, float, float, float))> Tree1, treeBinary<(Guid, (float, float, float, float))> Tree2, ref List<Guid> output)
         {
-            Dictionary<string, List<tree<Guid, (float, float, float, float)>>> lookUp = new Dictionary<string, List<tree<Guid, (float, float, float, float)>>>();
-            Queue<(tree<Guid, (float, float, float, float)>, List<string>)> current = new Queue<(tree<Guid, (float, float, float, float)>, List<string>)>();
+            Dictionary<string, treeBinary<(Guid, (float, float, float, float))>> lookUp = new Dictionary<string, treeBinary<(Guid, (float, float, float, float))>>();
+            Queue<(treeBinary<(Guid, (float, float, float, float))>, List<string>)> current = new Queue<(treeBinary<(Guid, (float, float, float, float))>, List<string>)>();
             while (true)
             {
                 var cur = current.Dequeue();
+                List<string> newKeys = new List<string>();
+                bool end = false;
                 foreach (string s in cur.Item2)
                 {
-                    foreach (tree<Guid, (float, float, float, float)> area in lookUp[s]) {
-                        if (inBounds(cur.Item1.Value, area.Value))
+                    treeBinary<(Guid, (float, float, float, float))> branch = lookUp[s];
+                    if (inBounds(branch.Value.Item2, cur.Item1.Value.Item2))
+                    {
+                        if (branch.Value.Item1 == Guid.Empty)
                         {
-                            if (area.Any())
-                            {
-                                if ()
-                            }
+                            string key = s + "1";
+                            newKeys.Add(key);
+                            lookUp[key] = branch.left;
+                            key = s + "2";
+                            newKeys.Add(key);
+                            lookUp[key] = branch.right;
+                        }
+                        else
+                        {
+                            end = true;
+                            newKeys.Add(s);
+                        }
+                    }
+                }
+                if (newKeys.Any())
+                {
+                    if (cur.Item1.Value.Item1 == Guid.Empty)
+                    {
+                        current.Enqueue((cur.Item1.left, newKeys));
+                        current.Enqueue((cur.Item1.right, newKeys));
+                    }
+                    else
+                    {
+                        if (end)
+                        {
+                            output.Add(cur.Item1.Value.Item1);
+                        }
+                        else
+                        {
+                            
+                        current.Enqueue((cur.Item1, newKeys));
                         }
                     }
                 }
             }
-            //iterate through all elements in 
-            for ()
         }
-        /*public void twinTraversal(KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> pair1, int depth1, KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> pair2, int depth2, ref List<Guid> output)
-        {
-            tree<Guid, (float, float, float, float)> Tree1 = pair1.Value;
-            tree<Guid, (float, float, float, float)> Tree2 = pair2.Value;
-            GD.Print("eepy");
-            if ((!(Tree1.Value.Item1 < Tree2.Value.Item1 && Tree1.Value.Item1 < Tree2.Value.Item2) &&
-            !(Tree1.Value.Item2 > Tree2.Value.Item1 && Tree1.Value.Item2 > Tree2.Value.Item2)) && 
-            (!(Tree1.Value.Item3 < Tree2.Value.Item3 && Tree1.Value.Item3 < Tree2.Value.Item4) && 
-            !(Tree1.Value.Item4 > Tree2.Value.Item3 && Tree1.Value.Item4 > Tree2.Value.Item4)))
-            {
-                if (!Tree1.Any() && !Tree2.Any())
-                {
-                    output.Add(pair1.Key);
-                }
-                else
-                {
-                    if (!Tree1.Any() || depth1 < depth2)
-                    {
-                        foreach (KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> branch in Tree2)
-                        {
-                            twinTraversal(pair1, depth1, branch, depth2 + 1, ref output);
-                        } 
-                    } else
-                    {
-                        foreach (KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> branch in Tree1)
-                        {
-                            twinTraversal(branch, depth1 + 1, pair2, depth2, ref output);
-                        } 
-                    }
-                }
-            }
-        }*/
         public List<Guid> searchTeams(team[] t, (float, float, float, float) minMax)
         {
             List<Guid> units = new List<Guid>();
@@ -133,41 +131,23 @@ namespace coolbeats.scripts.managerScripts
             }
             return units;
         }
-        public List<Guid> searchBVH(tree<Guid, (float, float, float, float)> BVH, (float, float, float, float) minMax)
+        public List<Guid> searchBVH(treeBinary<(Guid, (float, float, float, float))> BVH, (float, float, float, float) minMax)
         {
             List<Guid> output = new List<Guid>();
             searchBVH(BVH, ref output, minMax);
             return output;
         }
-        public void searchBVH(tree<Guid, (float, float, float, float)> tree, ref List<Guid> output, (float, float, float, float) minMax)
+        public void searchBVH(treeBinary<(Guid, (float, float, float, float))> pair, ref List<Guid> output, (float, float, float, float) minMax)
         {
-            if ((!(tree.Value.Item1 < minMax.Item1 && tree.Value.Item1 < minMax.Item2) && 
-            !(tree.Value.Item2 > minMax.Item1 && tree.Value.Item2 > minMax.Item2)) && 
-            (!(tree.Value.Item3 < minMax.Item3 && tree.Value.Item3 < minMax.Item4) && 
-            !(tree.Value.Item4 > minMax.Item3 && tree.Value.Item4 > minMax.Item4))) {
-                foreach (KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> branch in tree)
-                {
-                    searchBVH(branch, ref output, minMax);
-                }
-            }
-        }
-        public void searchBVH(KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> pair, ref List<Guid> output, (float, float, float, float) minMax)
-        {
-            tree<Guid, (float, float, float, float)> BVH = pair.Value;
-            if ((!(BVH.Value.Item1 < minMax.Item1 && BVH.Value.Item1 < minMax.Item2) && 
-            !(BVH.Value.Item2 > minMax.Item1 && BVH.Value.Item2 > minMax.Item2)) && 
-            (!(BVH.Value.Item3 < minMax.Item3 && BVH.Value.Item3 < minMax.Item4) && 
-            !(BVH.Value.Item4 > minMax.Item3 && BVH.Value.Item4 > minMax.Item4)))
+            if (inBounds(minMax, pair.Value.Item2))
             {
-                if (!BVH.Any())
+                if (pair.Value.Item1 != Guid.Empty)
                 {
-                    output.Add(pair.Key);
+                    output.Add(pair.Value.Item1);
                 }  else
                 {
-                    foreach (KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> branch in BVH)
-                    {
-                        searchBVH(branch, ref output, minMax);
-                    }
+                    searchBVH(pair.left, ref output, minMax);
+                    searchBVH(pair.right, ref output, minMax);
                 }
             }
         }
@@ -182,40 +162,36 @@ namespace coolbeats.scripts.managerScripts
             return encodings.OrderBy(x => x.Item1).Select(x => x.Item2).Distinct().ToArray();
         }
         
-        public tree<Guid, (float, float, float, float)> createBVH(ref Guid[] list, bool detectors = false)
+        public treeBinary<(Guid, (float, float, float, float))> createBVH(ref Guid[] list, bool detectors = false)
         {
-            tree<Guid, (float, float, float, float)> Tree = new tree<Guid, (float, float, float, float)>();
             if (list.Count() != 0)
             {
-                Tree[list[0]] = recursiveBVH(ref list, 0, list.Count() - 1, detectors);
-                Tree.Value = Tree[list[0]].Value;
+                return recursiveBVH(ref list, 0, list.Count() - 1, detectors);
             }
-            return Tree;
+            return new treeBinary<(Guid, (float, float, float, float))>();
         }
-        public tree<Guid, (float, float, float, float)> recursiveBVH(ref Guid[] list, int start, int end, bool detectors)
+        public treeBinary<(Guid, (float, float, float, float))> recursiveBVH(ref Guid[] list, int start, int end, bool detectors)
         {
-            tree<Guid, (float, float, float, float)> Tree = new tree<Guid, (float, float, float, float)>();
+            treeBinary<(Guid, (float, float, float, float))> Tree = new treeBinary<(Guid, (float, float, float, float))>();
             if (start == end)
             {
                 unitControler target = mAccess.unitManager.units[list[start]];
                 if (detectors)
                 {
-                    Tree.Value = (target.Position.X + target.detectionRadius, target.Position.X - target.detectionRadius, target.Position.Y + target.detectionRadius, target.Position.Y - target.detectionRadius);
+                    Tree.Value = (target.ID, (target.Position.X + target.detectionRadius, target.Position.X - target.detectionRadius, target.Position.Y + target.detectionRadius, target.Position.Y - target.detectionRadius));
                 } else
                 {
-                    Tree.Value = (target.Position.X + target.radius, target.Position.X - target.radius, target.Position.Y + target.radius, target.Position.Y - target.radius);
+                    Tree.Value = (target.ID, (target.Position.X + target.radius, target.Position.X - target.radius, target.Position.Y + target.radius, target.Position.Y - target.radius));
                 }
                 return Tree;
             }
             int middle = (int)Math.Round((double)start/end);
-            tree<Guid, (float, float, float, float)> left = recursiveBVH(ref list, start, middle, detectors);
-            tree<Guid, (float, float, float, float)> right = recursiveBVH(ref list, middle+1, end, detectors);
-            Tree.Value = ( Math.Max(left.Value.Item1, right.Value.Item1), 
-                Math.Min(left.Value.Item2, right.Value.Item2),
-                Math.Max(left.Value.Item3, right.Value.Item3),
-                Math.Min(left.Value.Item4, right.Value.Item4));
-            Tree[list[start]] = left;
-            Tree[list[middle+1]] = right;
+            Tree.left = recursiveBVH(ref list, start, middle, detectors);
+            Tree.right = recursiveBVH(ref list, middle+1, end, detectors);
+            Tree.Value = (Guid.Empty, (Math.Max(Tree.left.Value.Item2.Item1, Tree.left.Value.Item2.Item1), 
+                Math.Min(Tree.left.Value.Item2.Item2, Tree.left.Value.Item2.Item2),
+                Math.Max(Tree.left.Value.Item2.Item3, Tree.left.Value.Item2.Item3),
+                Math.Min(Tree.left.Value.Item2.Item4, Tree.left.Value.Item2.Item4)));
             return Tree;
         }
         public bool inBounds((float, float, float, float) a1, (float, float, float, float) a2)
@@ -225,28 +201,25 @@ namespace coolbeats.scripts.managerScripts
             (!(a1.Item3 < a2.Item3 && a1.Item3 < a2.Item4) && 
             !(a1.Item4 > a2.Item3 && a1.Item4 > a2.Item4));
         }
-        public void printBVH(tree<Guid, (float, float, float, float)> input)
+        public void printBVH(treeBinary<(Guid, (float, float, float, float))> input)
         {
             GD.Print("start");
             List<string> output = new List<string>() {input.Value.ToString()};
-            foreach (KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> pair in input)
-            {
-                output.AddRange(recursivePrint(pair).Select(x => "-" + x));
-            }
+            
+            output.AddRange(recursivePrint(input.left).Select(x => "-" + x));
+            output.AddRange(recursivePrint(input.right).Select(x => "-" + x));
             foreach (string s in output)
             {
                 GD.Print(s);
             }
             GD.Print("end");
         }
-        public List<string> recursivePrint(KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> input)
+        public List<string> recursivePrint(treeBinary<(Guid, (float, float, float, float))> input)
         {
             List<string> output = new List<string>();
             
-            foreach (KeyValuePair<Guid, tree<Guid, (float, float, float, float)>> pair in input.Value)
-            {
-                output.AddRange(recursivePrint(pair).Select(x => "-" + x));
-            }
+            output.AddRange(recursivePrint(input.left).Select(x => "-" + x));
+            output.AddRange(recursivePrint(input.right).Select(x => "-" + x));
             return output;
         }
     }

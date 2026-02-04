@@ -15,9 +15,9 @@ public class team
     public string name;
     public team[] enemies;
     public List<team> allies;
-    public tree<Guid, (float, float, float, float)> BVH;
-    public tree<Guid, (float, float, float, float)> detectorBVH;
-    public tree<Guid, (float, float, float, float)> targetBVH;
+    public treeBinary<(Guid, (float, float, float, float))> BVH;
+    public treeBinary<(Guid, (float, float, float, float))> detectorBVH;
+    public treeBinary<(Guid, (float, float, float, float))> targetBVH;
     public HashSet<Guid> units = new HashSet<Guid>();
     public List<Guid> visibleEnemies;
 }
