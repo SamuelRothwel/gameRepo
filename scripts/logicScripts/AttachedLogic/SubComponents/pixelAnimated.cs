@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Transactions;
 using System.Xml.Resolvers;
 using Godot;
 
-public partial class pixelAnimated : Sprite2D
+public partial class pixelAnimated : Sprite2D, subComponent
 {
     public string spriteSet;
     Dictionary<string, Image[]> animationImages;
@@ -15,7 +16,10 @@ public partial class pixelAnimated : Sprite2D
     public List<int[][]> spriteUpdateList = new List<int[][]>();
     public string animationName;
     public int spriteNumber;
-    public void setup(string name = null)
+    public Type type => typeof(pixelAnimated);
+    public componentController parent { get; set; }
+
+    public virtual void setup(string name = null)
     {
         animationImages = mAccess.spriteManager.getEntityImages(name?? spriteSet);
         animationTextures = animationImages.ToDictionary(x => x.Key, x => x.Value.Select(y => ImageTexture.CreateFromImage(y)).ToArray());

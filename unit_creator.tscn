@@ -1,0 +1,14 @@
+[gd_scene load_steps=2 format=3 uid="uid://djucb6judxw0h"]
+
+[ext_resource type="Script" path="res://scripts/UIScripts/AddSpriteLayerButton.cs" id="1_6j2wl"]
+
+[node name="unitCreator" type="Node"]
+
+[node name="AddSpriteLayerButton" type="Button" parent="."]
+offset_left = 14.0
+offset_top = 675.0
+offset_right = 141.0
+offset_bottom = 706.0
+text = "AddSpriteLayer
+"
+script = ExtResource("1_6j2wl")

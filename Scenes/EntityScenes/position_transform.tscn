@@ -1,0 +1,5 @@
+[gd_scene format=3 uid="uid://d16y1qohlae4g"]
+
+[node name="positionTransform" type="RemoteTransform2D"]
+update_rotation = false
+update_scale = false

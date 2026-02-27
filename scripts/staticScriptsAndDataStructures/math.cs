@@ -14,6 +14,10 @@ public static class math
 	{
 		return (p.X + radius, p.X - radius, p.Y + radius, p.Y - radius);
 	}
+	public static Vector2 createVector((int, int) point)
+	{
+		return new Vector2(point.Item1, point.Item2);
+	}
 	public static Vector2 createVector(float velocity, float angle, bool degrees = false)
 	{
 		if (degrees)

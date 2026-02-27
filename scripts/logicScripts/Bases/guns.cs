@@ -3,6 +3,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
+using System.Linq;
 
 public class gunTemplate
 {
@@ -47,7 +48,10 @@ public class gunTemplate
 	}
 	public virtual void spawnBullet(Gun gun)
 	{
-		projectile bullet = mAccess.projectileManager.fire(bulletType, gun.GlobalPosition, (gun.GetParent() as Node2D).GlobalRotation - 0.5f * math.PI + math.randomFloat(-0.0087, 0.0087) * spread);
+		projectile bullet = mAccess.recycleManager.Get<projectile>();
+		bullet.spawn(gun.GlobalPosition, gun.GlobalRotation, 1000, "default", 
+		new Guid[] { gun.target });
+		//projectile bullet = mAccess.projectileManager.fire(bulletType, gun.GlobalPosition, (gun.GetParent() as Node2D).GlobalRotation - 0.5f * math.PI + math.randomFloat(-0.0087, 0.0087) * spread);
 		gun.AddChild(bullet);
 	}
 	public virtual bool hasHeat { get; set; } = true;

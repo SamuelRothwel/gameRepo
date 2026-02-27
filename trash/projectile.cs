@@ -1,20 +1,23 @@
 
 
+/*
+
+
 
 using Godot;
 using System;
 using System.Collections.Generic;
 using coolbeats.scripts.logicScripts.Bases;
 using coolbeats.scripts.logicScripts.BackgroundLogic;
-/*
+
 1 everything
 2 walls
 3 enemies
 4 player
-*/
-public partial class projectile : CharacterBody2D, timedObject
+
+public partial class depProjectile : CharacterBody2D, timedObject
 {
-	public static Dictionary<string, projectileTemplate> projectiles;
+	public static Dictionary<string, deprecatedProjectile> projectiles;
 	public Vector2 directionalVelocity;
 	public string type;
 	public bool active;
@@ -101,4 +104,4 @@ public partial class projectile : CharacterBody2D, timedObject
 			else { GlobalPosition += distance; break; }	
 		}
 	}
-}
+}*/

@@ -7,9 +7,9 @@ public partial class barracks : unitControler
 	// Called when the node enters the scene tree for the first time.
 	public barracks()
 	{
-		//type = "barracks";
+		type = "barracks";
 		radius = 100;
-		type = "attacker";
+		//type = "attacker";
 		detectionRadius = 150;
 		//speed = 1;
 		maxHP = 50;

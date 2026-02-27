@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3 uid="uid://cmv1kjeioejsk"]
+
+[ext_resource type="PackedScene" uid="uid://bxa5qrgr3td7l" path="res://Scenes/EntityScenes/health_bar.tscn" id="1_ctclg"]
+
+[node name="healthBar2" type="Node2D"]
+
+[node name="healthBar" parent="." instance=ExtResource("1_ctclg")]
+offset_left = -49.0
+offset_top = -13.0
+offset_right = 51.0
+offset_bottom = 14.0

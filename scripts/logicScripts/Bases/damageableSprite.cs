@@ -1,4 +1,4 @@
-using System;
+/*using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure.Internal;
 
 
-public partial class damageableSprite : pixelAnimated
+public partial class deprecatedDamageableSprite : pixelAnimated
 {
     public (int, int)[,] healthMap;
     CharacterBody2D collider;
@@ -85,4 +85,4 @@ public partial class damageableSprite : pixelAnimated
 
         double max = x + Projectile.collider.Scale.X / LUT.cos((int)angle);
     }
-}
+}*/

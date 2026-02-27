@@ -6,6 +6,7 @@ using System.Runtime;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Godot;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace coolbeats.scripts.managerScripts
 {
@@ -55,114 +56,128 @@ namespace coolbeats.scripts.managerScripts
         {
             return coords/camera.Zoom + cameraOffset + camera.Position;
         }
+        public Vector2 scaleLocalCoords(Vector2 coords)
+        {
+            return coords/camera.Zoom + cameraOffset;
+        }
         public override async void _UnhandledInput(InputEvent inp)
         {
-            if (mAccess.sceneManager.inGame)
+            if (mAccess.sceneManager.gameStates["moveCamera"])
             {
-                if (inp is InputEventMouseMotion motion)
-                {
-                    if (dragging)
+                
+            }
+
+            switch (mAccess.sceneManager.gameStates)
+            {
+                case "inGame":
+                    if (inp is InputEventMouseMotion motion)
                     {
-                        camera.Position -= motion.Relative;
-                    }
-                    if (selecting)
-                    {
-                        pen.drawRectangle(scaleCoords(startSelect), scaleCoords(motion.Position));
-                    }
-                }
-                else if (inp is InputEventMouseButton mouse)
-                {
-                    switch (mouse.ButtonIndex)
-                    {
-                        case MouseButton.Left:
-                            if (activeKey != Key.None)
-                            {
-                                if (mouse.Pressed)
-                                {
-                                    sendTargetCommand(scaleCoords(mouse.GlobalPosition));
-                                    activeKey = Key.None;
-                                }
-                            } else
-                            {
-                                if (mouse.Pressed)
-                                {
-                                    startSelect = mouse.Position;
-                                    selecting = true;
-                                } else
-                                {
-                                    if (selecting)
-                                    {
-                                        selecting = false;
-                                        mAccess.teamManager.UpdateTeamVisions();
-                                        for (int i = 0; i < selectedUnits.Count; i++)
-                                        {
-                                            mAccess.unitManager.units[selectedUnits[i]].selected = false;
-                                        }
-                                        selectedUnits = new List<Guid>();
-                                        mAccess.teamManager.searchBVH(activeTeam.BVH, ref selectedUnits, math.getMinMax(scaleCoords(startSelect), scaleCoords(mouse.GlobalPosition)));
-                                        int maxPriority = 0;
-                                        selectedTypes = new Dictionary<string, List<Guid>>();
-                                        string newSelectedType = "";
-                                        for (int i = 0; i < selectedUnits.Count; i++)
-                                        {
-                                            unitControler unit = mAccess.unitManager.units[selectedUnits[i]];
-                                            unit.selected = true;
-                                            if (!selectedTypes.ContainsKey(unit.type))
-                                            {
-                                                selectedTypes[unit.type] = new List<Guid>();
-                                            }
-                                            selectedTypes[unit.type].Add(unit.ID);
-                                            if (maxPriority < unit.priority)
-                                            {
-                                                newSelectedType = unit.type;
-                                            }
-                                        }
-                                        selectedType = newSelectedType;
-                                        pen.erase();
-                                    }
-                                }
-                            }
-                            break;
-                        case MouseButton.Right:
-                            if (mouse.Pressed)
-                            {
-                                activeKey = Key.None;
-                                sendTargetCommand(scaleCoords(mouse.GlobalPosition));
-                            }
-                            break;
-                        case MouseButton.Middle:
-                            if (mouse.Pressed)
-                            {
-                                dragging = true;
-                            } else
-                            {
-                                dragging = false;
-                            }
-                            break;
-                        case MouseButton.WheelUp:
-                            setCameraScale(0.5f);
-                            break;
-                        case MouseButton.WheelDown:
-                            setCameraScale(1f);
-                            break;
-                    }
-                }
-                else if (inp is InputEventKey key)
-                {
-                    (string[], string) commandInstruction;
-                    bool hasCommand = mAccess.unitManager.commandSets[selectedType].Item2.TryGetValue(key.Keycode, out commandInstruction);
-                    if (hasCommand)
-                    {
-                        if (commandInstruction.Item1.FirstOrDefault() == "active")
+                        if (dragging)
                         {
-                            command com = new command(commandInstruction.Item2);
-                            sendCommands(com, commandInstruction, key.Keycode);
-                        } else
+                            camera.Position -= motion.Relative;
+                        }
+                        if (selecting)
                         {
-                            activeKey = key.Keycode;
+                            pen.drawRectangle(scaleLocalCoords(startSelect), scaleLocalCoords(motion.GlobalPosition));
                         }
                     }
-                }
+                    else if (inp is InputEventMouseButton mouse)
+                    {
+                        switch (mouse.ButtonIndex)
+                        {
+                            case MouseButton.Left:
+                                if (activeKey != Key.None)
+                                {
+                                    if (mouse.Pressed)
+                                    {
+                                        sendTargetCommand(scaleCoords(mouse.GlobalPosition));
+                                        activeKey = Key.None;
+                                    }
+                                } else
+                                {
+                                    if (mouse.Pressed)
+                                    {
+                                        startSelect = mouse.Position;
+                                        selecting = true;
+                                    } else
+                                    {
+                                        if (selecting)
+                                        {
+                                            selecting = false;
+                                            mAccess.teamManager.UpdateTeamVisions();
+                                            for (int i = 0; i < selectedUnits.Count; i++)
+                                            {
+                                                mAccess.unitManager.units[selectedUnits[i]].selected = false;
+                                            }
+                                            selectedUnits = new List<Guid>();
+                                            mAccess.teamManager.searchBVH(activeTeam.BVH, ref selectedUnits, math.getMinMax(scaleCoords(startSelect), scaleCoords(mouse.GlobalPosition)));
+                                            int maxPriority = 0;
+                                            selectedTypes = new Dictionary<string, List<Guid>>();
+                                            string newSelectedType = "";
+                                            for (int i = 0; i < selectedUnits.Count; i++)
+                                            {
+                                                unitControler unit = mAccess.unitManager.units[selectedUnits[i]];
+                                                unit.selected = true;
+                                                if (!selectedTypes.ContainsKey(unit.type))
+                                                {
+                                                    selectedTypes[unit.type] = new List<Guid>();
+                                                }
+                                                selectedTypes[unit.type].Add(unit.ID);
+                                                if (maxPriority < unit.priority)
+                                                {
+                                                    newSelectedType = unit.type;
+                                                }
+                                            }
+                                            selectedType = newSelectedType;
+                                            pen.erase();
+                                        }
+                                    }
+                                }
+                                break;
+                            case MouseButton.Right:
+                                if (mouse.Pressed)
+                                {
+                                    activeKey = Key.None;
+                                    sendTargetCommand(scaleCoords(mouse.GlobalPosition));
+                                }
+                                break;
+                            case MouseButton.Middle:
+                                if (mouse.Pressed)
+                                {
+                                    dragging = true;
+                                } else
+                                {
+                                    dragging = false;
+                                }
+                                break;
+                            case MouseButton.WheelUp:
+                                setCameraScale(0.5f);
+                                break;
+                            case MouseButton.WheelDown:
+                                setCameraScale(1f);
+                                break;
+                        }
+                    }
+                    else if (inp is InputEventKey key)
+                    {
+                        (string[], string) commandInstruction;
+                        bool hasCommand = mAccess.unitManager.commandSets[selectedType].Item2.TryGetValue(key.Keycode, out commandInstruction);
+                        if (hasCommand)
+                        {
+                            if (commandInstruction.Item1.FirstOrDefault() == "active")
+                            {
+                                command com = new command(commandInstruction.Item2);
+                                sendCommands(com, commandInstruction, key.Keycode);
+                            } else
+                            {
+                                activeKey = key.Keycode;
+                            }
+                        }
+                    }
+                break;
+                case "spriteMaker":
+                
+                break;
             }
         }
         public void sendTargetCommand(Vector2 position)

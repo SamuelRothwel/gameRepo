@@ -44,7 +44,7 @@ namespace coolbeats.scripts.logicScripts.AttachedLogic.units
                 }
                 if (stationaryAttack)
                 {
-                    //goto end;
+                    goto end;
                 }
             }
             if (scanForChase)
@@ -133,7 +133,7 @@ namespace coolbeats.scripts.logicScripts.AttachedLogic.units
                     scanForAttack = true;
                     break;
                 case "attackMove":
-                    attackTarget = true;
+                    attackTarget = false;
                     chaseTarget = true;
                     scanForChase = true;
                     scanForAttack = true;

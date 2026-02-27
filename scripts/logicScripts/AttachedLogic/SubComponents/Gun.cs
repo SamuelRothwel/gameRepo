@@ -17,9 +17,9 @@ public partial class Gun : Node2D, subComponent
 	public CircularEnumerator<Sprite2D> gunComponents;
 	public double rotation = 0;
 	public bool shooting = false;
-
     public Type type => typeof(Gun);
     public componentController parent { get; set; }
+    public Guid target;	
 
     public override void _Ready()
 	{
@@ -27,6 +27,11 @@ public partial class Gun : Node2D, subComponent
 		gunComponents = new CircularEnumerator<Sprite2D>(ref _components);
 		animator = GetChild<AnimationPlayer>(0);
 		animator.SpeedScale = guns[gunType].firerate;
+	}
+    public void fire(Guid t)
+	{
+		target = t;
+		shooting = true;
 	}
 	public void swap(string newType)
 	{

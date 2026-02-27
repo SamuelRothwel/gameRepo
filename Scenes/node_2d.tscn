@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://jbv5kd3fuh02"]
+[gd_scene load_steps=10 format=3 uid="uid://jbv5kd3fuh02"]
 
 [ext_resource type="PackedScene" uid="uid://nou2fkswxvvc" path="res://Scenes/setScenes/managers.tscn" id="1_bhyg4"]
 [ext_resource type="PackedScene" uid="uid://bc0874mxjw0o7" path="res://Scenes/GameScenes/MenuScene.tscn" id="3_g6dc8"]
@@ -7,6 +7,8 @@
 [ext_resource type="PackedScene" uid="uid://6npwkntkdgxi" path="res://Scenes/setScenes/entities.tscn" id="6_h41vk"]
 [ext_resource type="PackedScene" uid="uid://ci0uwvwf41hiw" path="res://Scenes/setScenes/logic.tscn" id="7_0dbco"]
 [ext_resource type="PackedScene" uid="uid://chdl5ocyqtpcw" path="res://Scenes/setScenes/sprites.tscn" id="8_dcn70"]
+[ext_resource type="PackedScene" uid="uid://p5wnbcjw3yq5" path="res://Scenes/EntityScenes/projectile.tscn" id="8_hkqjs"]
+[ext_resource type="PackedScene" uid="uid://cb826v0q10oc8" path="res://Scenes/EntityScenes/test_enemy.tscn" id="9_w235c"]
 
 [node name="Node2D" type="Node2D"]
 
@@ -27,3 +29,10 @@
 [node name="Logic" parent="." instance=ExtResource("7_0dbco")]
 
 [node name="Sprites" parent="." instance=ExtResource("8_dcn70")]
+
+[node name="Trash" type="Node" parent="."]
+
+[node name="projectile" parent="Trash" instance=ExtResource("8_hkqjs")]
+script = null
+
+[node name="testEnemy" parent="Trash" groups=["enemy"] instance=ExtResource("9_w235c")]

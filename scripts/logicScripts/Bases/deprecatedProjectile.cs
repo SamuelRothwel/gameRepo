@@ -1,7 +1,7 @@
-using Godot;
+/*using Godot;
 using System;
 
-public class projectileTemplate
+public class deprecatedProjectile
 {
 	public virtual float velocity { get; set; } = 1500;
 	public virtual float lifetime { get; set; } = 1f;
@@ -14,8 +14,9 @@ public class projectileTemplate
 		damageableSprite p = (damageableSprite)((CharacterBody2D)collider).GetParent();
 		p.impact(Projectile);
 	}
-	public class regular : projectileTemplate
+	public class regular : deprecatedProjectile
 	{
 		public override Color[] trailColour { get; set; } = { new Color(0, 0, 0, 0), new Color(0, 0, 0, 0) };
 	}
 }
+*/

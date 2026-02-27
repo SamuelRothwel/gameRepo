@@ -1,4 +1,4 @@
-using coolbeats.scripts.logicScripts.Bases;
+/*using coolbeats.scripts.logicScripts.Bases;
 using Godot;
 using System;
 using System.Net.Http.Headers;
@@ -15,3 +15,4 @@ public partial class shader : damageableSprite
 	{
 	}
 }
+*/

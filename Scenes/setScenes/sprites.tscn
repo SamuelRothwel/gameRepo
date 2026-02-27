@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://chdl5ocyqtpcw"]
+[gd_scene load_steps=5 format=3 uid="uid://chdl5ocyqtpcw"]
 
 [ext_resource type="Script" path="res://scripts/scriptSets/spriteScripts/TestSprite.cs" id="1_xrktb"]
 [ext_resource type="Script" path="res://scripts/scriptSets/spriteScripts/GunBarrelSprite.cs" id="2_bhjef"]
 [ext_resource type="Script" path="res://scripts/scriptSets/spriteScripts/BarracksSprite.cs" id="3_xl5nb"]
+[ext_resource type="Script" path="res://scripts/scriptSets/spriteScripts/MarineSprite.cs" id="4_em88v"]
 
 [node name="Sprites" type="Node"]
 
@@ -25,3 +26,8 @@ script = ExtResource("2_bhjef")
 
 [node name="idle" type="Node" parent="Barracks"]
 script = ExtResource("3_xl5nb")
+
+[node name="Marine" type="Node" parent="."]
+
+[node name="idle" type="Node" parent="Marine"]
+script = ExtResource("4_em88v")

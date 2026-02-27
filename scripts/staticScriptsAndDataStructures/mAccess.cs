@@ -11,14 +11,14 @@ public static class mAccess
 	public static LogicManagement logicManagement;
 	public static AnimationManagement animationManagement;
 	public static LifetimeManagement lifetimeManager;
-	public static ProjectileManagement projectileManager;
 	public static SpriteManagement spriteManager;
 	public static GameManagement gameManager;
 	public static DamageManagement damageManager;
 	public static UnitManagement unitManager;
 	public static TeamManagement teamManager;
 	public static InputManagement inputManager;
-	//public static PlayerManagement playerManager;
+	public static RecycleManagement recycleManager;
+	public static creatorManagement creatorManager;
 
 	public static void setup(Godot.Collections.Array<Node> managers)
 	{
@@ -47,9 +47,6 @@ public static class mAccess
 				case "LifetimeManager":
 					lifetimeManager = manager as LifetimeManagement;
 					break;
-				case "ProjectileManager":
-					projectileManager = manager as ProjectileManagement;
-					break;
 				case "SpriteManager":
 					spriteManager = manager as SpriteManagement;
 					break;
@@ -68,9 +65,12 @@ public static class mAccess
 				case "InputManager":
 					inputManager = manager as InputManagement;
 					break;
-				//case "PlayerManager":
-				//	playerManager = manager as PlayerManagement;
-				//	break;
+				case "RecyclerManager":
+					recycleManager = manager as RecycleManagement;
+					break;
+				case "CreatorManager":
+					creatorManager = manager as creatorManagement;
+					break;
 				default:
 					GD.Print("invalid manager: " + manager.Name);
 					break;
@@ -79,14 +79,14 @@ public static class mAccess
 		lifetimeManager.setup();
 		animationManagement.setup();
 		spriteManager.setup();
-		//playerManager.setup();
 		damageManager.setup();
 		logicManagement.setup();
 		sceneManager.setup();
 		layerManager.setup();
-		uiManager.setup();
 		entityManager.setup();
-		projectileManager.setup();
+		recycleManager.setup();
+		uiManager.setup();
+		creatorManager.setup();
 		gameManager.setup();
 		unitManager.setup();
 		teamManager.setup();

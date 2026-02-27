@@ -1,23 +1,19 @@
 [gd_scene load_steps=11 format=3 uid="uid://6npwkntkdgxi"]
 
 [ext_resource type="PackedScene" uid="uid://d8se50ch7t1a" path="res://Scenes/EntityScenes/player.tscn" id="1_bghh0"]
-[ext_resource type="PackedScene" uid="uid://b0w5xf63kl6ma" path="res://Scenes/EntityScenes/projectile.tscn" id="2_gx7hh"]
-[ext_resource type="PackedScene" uid="uid://cb826v0q10oc8" path="res://Scenes/EntityScenes/test_enemy.tscn" id="3_jxito"]
+[ext_resource type="PackedScene" uid="uid://p5wnbcjw3yq5" path="res://Scenes/EntityScenes/projectile.tscn" id="2_gx7hh"]
 [ext_resource type="PackedScene" uid="uid://bmqx453ricdud" path="res://Scenes/EntityScenes/crawler_enemy.tscn" id="4_s3nl4"]
 [ext_resource type="PackedScene" uid="uid://dv0c85xh5eege" path="res://Scenes/EntityScenes/marine.tscn" id="5_hylvk"]
 [ext_resource type="PackedScene" uid="uid://bvhvjcbx7cotp" path="res://Scenes/EntityScenes/player_camera.tscn" id="6_4oytr"]
 [ext_resource type="PackedScene" uid="uid://ccjbmt3ef7jip" path="res://Scenes/EntityScenes/pen.tscn" id="7_8fvkn"]
+[ext_resource type="PackedScene" uid="uid://8ftd7vmagj36" path="res://Scenes/EntityScenes/barracks.tscn" id="7_qqjcn"]
 [ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/pen.cs" id="8_cexfp"]
-[ext_resource type="PackedScene" uid="uid://8ftd7vmagj36" path="res://barracks.tscn" id="9_lrw72"]
-[ext_resource type="PackedScene" uid="uid://bdhrwspw8mtwn" path="res://health_bar.tscn" id="10_3bdcj"]
+[ext_resource type="PackedScene" uid="uid://d16y1qohlae4g" path="res://Scenes/EntityScenes/position_transform.tscn" id="8_o2518"]
+[ext_resource type="PackedScene" uid="uid://cmv1kjeioejsk" path="res://Scenes/EntityScenes/healthBar.tscn" id="9_inkn2"]
 
 [node name="Entities" type="Node"]
 
 [node name="player" parent="." instance=ExtResource("1_bghh0")]
-
-[node name="projectile" parent="." instance=ExtResource("2_gx7hh")]
-
-[node name="testEnemy" parent="." groups=["enemy"] instance=ExtResource("3_jxito")]
 
 [node name="carEnemy" type="Sprite2D" parent="." groups=["enemy"]]
 
@@ -30,7 +26,11 @@
 [node name="pen" parent="." instance=ExtResource("7_8fvkn")]
 script = ExtResource("8_cexfp")
 
-[node name="barracks" parent="." instance=ExtResource("9_lrw72")]
+[node name="barracks" parent="." instance=ExtResource("7_qqjcn")]
 position = Vector2(-100, 100)
 
-[node name="healthBar" parent="." instance=ExtResource("10_3bdcj")]
+[node name="positionTransform" parent="." instance=ExtResource("8_o2518")]
+
+[node name="healthBar" parent="." instance=ExtResource("9_inkn2")]
+
+[node name="projectile" parent="." instance=ExtResource("2_gx7hh")]

@@ -36,4 +36,28 @@ static class EnumerableExtensions
         }
         return output;
     }
+    public static T[,] Repeat<T>(this T[,] source, T element, int width, int height)
+    {
+        source = new T[width, height];
+        for (int i = 0; i < width; i++)
+        {
+            for (int j = 0; j < height; j++)
+            {
+                source[i, j] = element;
+            }
+        }
+        return source;
+    }
+    public static T[,] Repeat<T>(T element, int width, int height)
+    {
+        T[,] source = new T[width, height];
+        for (int i = 0; i < width; i++)
+        {
+            for (int j = 0; j < height; j++)
+            {
+                source[i, j] = element;
+            }
+        }
+        return source;
+    }
 }

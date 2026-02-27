@@ -7,10 +7,9 @@ using Godot;
 
 public interface componentController
 {
-    public string subType {get; set;}
     public Type type {get;}
-    public string state {get; set;}
     unitControler controler {get; set;}
-    TypeRegistry<subComponent> subComponents { get; set; }
+    TypeRegistry subComponents { get; set; }
     Node2D self { get { return (Node2D)this; } }
+    public virtual void setup() {}
 }

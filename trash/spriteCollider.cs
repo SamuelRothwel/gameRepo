@@ -1,4 +1,4 @@
-
+/*
 
 
 using System;
@@ -15,4 +15,4 @@ public partial class spriteCollider : CharacterBody2D
     {
         sprite = (damageableSprite)GetParent();
     }
-}
+}*/

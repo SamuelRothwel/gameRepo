@@ -10,7 +10,8 @@ public partial class staticCreator : BackgroundLogicNode
 	public override void setup()
 	{
 		Gun.guns = returnTemplates<gunTemplate>();
-		projectile.projectiles = returnTemplates<projectileTemplate>();
+		projectile.physicsTemplates = returnTemplates<projectilePhysicsTemplate>();
+		projectile.effectTemplates = returnTemplates<projectileEffectsTemplate>();
 	}
 
 	public Dictionary<string, T> returnTemplates<T>()

@@ -11,11 +11,7 @@ namespace coolbeats.scripts.logicScripts.AttachedLogic.Components
     public partial class componentGun : Node2D, componentController
     {
         public unitControler controler { get; set; }
-        public string state { get; set; }
-        public TypeRegistry<subComponent> subComponents { get; set; }
-
-        public string subType {get; set;}
-
+        public TypeRegistry subComponents { get; set; }
         public Type type => typeof(componentGun);
         Guid? currentTarget = null;
         public float range = 300;
@@ -64,7 +60,7 @@ namespace coolbeats.scripts.logicScripts.AttachedLogic.Components
                     return currentTarget;
                 } else
                 {
-                    subComponents.Get<Gun>().shooting = true;
+                    subComponents.Get<Gun>().fire((Guid)target);
                     return currentTarget;
                 }
             }
