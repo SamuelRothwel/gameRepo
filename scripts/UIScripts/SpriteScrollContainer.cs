@@ -26,6 +26,12 @@ public partial class SpriteScrollContainer : VBoxContainer
 	}
 	void spriteChange(object sender, SpriteEvent e)
 	{
+		if (e.clear)
+		{
+			clearSprites();
+			return;
+		}
+
 		if (sprites.ContainsKey(e.name))
 		{
 			sprites[e.name].Texture = e.sprite;
@@ -35,6 +41,19 @@ public partial class SpriteScrollContainer : VBoxContainer
 		{
 			addSprite(e.name, e.sprite, e.order);
 		}
+	}
+	void clearSprites()
+	{
+		foreach (Control slot in spriteSlots.Values)
+		{
+			slot.QueueFree();
+		}
+
+		sprites.Clear();
+		spriteSlots.Clear();
+		draggedSpriteName = null;
+		draggedSlot = null;
+		dragMoved = false;
 	}
 	void setSprite(Sprite2D sprite)
 	{

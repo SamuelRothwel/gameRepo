@@ -7,8 +7,6 @@ public partial class SpriteCreatorSidebar : VBoxContainer
     readonly Dictionary<string, Button> colorButtons = new Dictionary<string, Button>();
     GridContainer colorGrid;
     Button savedSpritesButton;
-    ScrollContainer savedSpritesScroll;
-    VBoxContainer savedSpritesList;
 
     readonly string[] colorSlots = new string[]
     {
@@ -21,10 +19,12 @@ public partial class SpriteCreatorSidebar : VBoxContainer
     public override void _Ready()
     {
         CustomMinimumSize = new Vector2(150, 0);
+        MouseFilter = MouseFilterEnum.Ignore;
 
         colorGrid = new GridContainer();
         colorGrid.Columns = 2;
         colorGrid.CustomMinimumSize = new Vector2(120, 120);
+        colorGrid.MouseFilter = MouseFilterEnum.Ignore;
         AddChild(colorGrid);
         MoveChild(colorGrid, 0);
 
@@ -34,14 +34,6 @@ public partial class SpriteCreatorSidebar : VBoxContainer
         savedSpritesButton.Pressed += toggleSavedSpritesList;
         AddChild(savedSpritesButton);
         MoveChild(savedSpritesButton, 1);
-
-        savedSpritesScroll = new ScrollContainer();
-        savedSpritesScroll.CustomMinimumSize = new Vector2(140, 240);
-        savedSpritesScroll.Visible = false;
-        savedSpritesList = new VBoxContainer();
-        savedSpritesScroll.AddChild(savedSpritesList);
-        AddChild(savedSpritesScroll);
-        MoveChild(savedSpritesScroll, 2);
 
         foreach (string colorName in colorSlots)
         {
@@ -128,19 +120,17 @@ public partial class SpriteCreatorSidebar : VBoxContainer
 
     void toggleSavedSpritesList()
     {
-        savedSpritesScroll.Visible = !savedSpritesScroll.Visible;
-        if (savedSpritesScroll.Visible)
-        {
-            populateSavedSpritesList();
-        }
+        mAccess.windowManager.openWindow("Saved Sprites", createSavedSpritesWindowContent());
     }
 
-    void populateSavedSpritesList()
+    Control createSavedSpritesWindowContent()
     {
-        foreach (Node child in savedSpritesList.GetChildren())
-        {
-            child.QueueFree();
-        }
+        ScrollContainer scroll = new ScrollContainer();
+        scroll.CustomMinimumSize = new Vector2(320, 420);
+
+        VBoxContainer savedSpritesList = new VBoxContainer();
+        savedSpritesList.CustomMinimumSize = new Vector2(300, 0);
+        scroll.AddChild(savedSpritesList);
 
         List<StoredSprite> sprites = mAccess.entityFrameworkManager.GetSprites();
         if (sprites.Count == 0)
@@ -148,33 +138,52 @@ public partial class SpriteCreatorSidebar : VBoxContainer
             Label emptyLabel = new Label();
             emptyLabel.Text = "No saved sprites";
             savedSpritesList.AddChild(emptyLabel);
-            return;
+            return scroll;
         }
 
         foreach (StoredSprite storedSprite in sprites)
         {
             savedSpritesList.AddChild(createSavedSpriteRow(storedSprite));
         }
+
+        return scroll;
     }
 
     Control createSavedSpriteRow(StoredSprite storedSprite)
     {
+        Button rowButton = new Button();
+        rowButton.Text = "";
+        rowButton.Flat = true;
+        rowButton.CustomMinimumSize = new Vector2(130, 58);
+        rowButton.Pressed += () =>
+        {
+            mAccess.spriteCreatorManager.LoadStoredSprite(storedSprite);
+            mAccess.windowManager.closeWindow("Saved Sprites");
+        };
+
         HBoxContainer row = new HBoxContainer();
         row.CustomMinimumSize = new Vector2(130, 58);
+        row.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        row.OffsetLeft = 6f;
+        row.OffsetRight = -6f;
+        row.MouseFilter = Control.MouseFilterEnum.Ignore;
+        rowButton.AddChild(row);
 
         TextureRect preview = new TextureRect();
         preview.CustomMinimumSize = new Vector2(54, 54);
         preview.Texture = mAccess.spriteCreatorManager.CreateStoredSpritePreview(storedSprite);
         preview.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
         preview.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
+        preview.MouseFilter = Control.MouseFilterEnum.Ignore;
         row.AddChild(preview);
 
         Label nameLabel = new Label();
         nameLabel.Text = storedSprite.Name;
         nameLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         nameLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        nameLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
         row.AddChild(nameLabel);
 
-        return row;
+        return rowButton;
     }
 }

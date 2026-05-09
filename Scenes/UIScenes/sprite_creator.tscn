@@ -15,14 +15,17 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 
 [node name="SpriteCreatorSidebar" type="VBoxContainer" parent="."]
 layout_mode = 1
-anchors_preset = 10
+anchors_preset = 9
 anchor_bottom = 1.0
 offset_left = 14.0
 offset_right = 164.0
+grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 script = ExtResource("4_0q1ey")
 
 [node name="AddSpriteLayerButton" type="Button" parent="SpriteCreatorSidebar"]

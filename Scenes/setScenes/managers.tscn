@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3 uid="uid://nou2fkswxvvc"]
+[gd_scene load_steps=27 format=3 uid="uid://nou2fkswxvvc"]
 
 [ext_resource type="Script" path="res://scripts/managerScripts/LogicManagement.cs" id="1_0nxiu"]
 [ext_resource type="Script" path="res://scripts/managerScripts/EntityManagement.cs" id="1_j3fb0"]
@@ -25,6 +25,7 @@
 [ext_resource type="Script" path="res://scripts/managerScripts/ColorManagement.cs" id="23_yrje6"]
 [ext_resource type="Script" path="res://scripts/managerScripts/FileManagement.cs" id="24_r006g"]
 [ext_resource type="Script" path="res://scripts/managerScripts/EntityFrameworkManagement.cs" id="25_qkqil"]
+[ext_resource type="Script" path="res://scripts/managerScripts/WindowManagement.cs" id="26_2r0pr"]
 
 [node name="managers" type="Node"]
 
@@ -43,6 +44,9 @@ script = ExtResource("24_r006g")
 
 [node name="EntityFrameworkManager" type="Node" parent="." groups=["admin"]]
 script = ExtResource("25_qkqil")
+
+[node name="WindowManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("26_2r0pr")
 
 [node name="LogicManager" type="Node" parent="." groups=["admin"]]
 script = ExtResource("1_0nxiu")

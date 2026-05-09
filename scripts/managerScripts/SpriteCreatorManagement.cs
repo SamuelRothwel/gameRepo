@@ -91,6 +91,58 @@ public partial class SpriteCreatorManagement : managerNode
 		activeSpriteLayerOrder.Insert(order, name);
 		UpdateSpriteLayerZIndexes();
 	}
+	public void LoadStoredSprite(StoredSprite storedSprite)
+	{
+		ClearSpriteLayers();
+		spriteScale = spriteScale == 0 ? 10 : spriteScale;
+
+		foreach (StoredSpriteLayer layer in storedSprite.Layers.OrderBy(layer => layer.Order))
+		{
+			List<SpriteLayerPoint> points = JsonSerializer.Deserialize<List<SpriteLayerPoint>>(layer.CoordinatesJson) ?? new List<SpriteLayerPoint>();
+			AddLoadedSpriteLayer(layer.Name, points.Select(point => new Vector2(point.X, point.Y)).ToList(), colorFromStoredLayer(layer));
+		}
+
+		if (activeSpriteLayerOrder.Count > 0)
+		{
+			SetActiveSpriteLayer(activeSpriteLayerOrder[0]);
+		}
+	}
+	void ClearSpriteLayers()
+	{
+		foreach ((Sprite2D sprite, List<Vector2> _) in activeSpriteLayers.Values)
+		{
+			sprite.QueueFree();
+		}
+
+		activeSpriteLayers.Clear();
+		activeSpriteLayerCoords.Clear();
+		activeSpriteLayerColors.Clear();
+		activeSpriteLayerOrder.Clear();
+		activeSprite = null;
+		activeLayer = null;
+		spriteChangeEvent?.Invoke(this, SpriteEvent.Clear());
+	}
+	void AddLoadedSpriteLayer(string name, List<Vector2> coords, Color color)
+	{
+		string layerName = name;
+		int duplicateIndex = 1;
+		while (activeSpriteLayers.ContainsKey(layerName))
+		{
+			layerName = name + " " + duplicateIndex;
+			duplicateIndex++;
+		}
+
+		Sprite2D sprite = new Sprite2D();
+		sprite.Scale = new Vector2(spriteScale, spriteScale);
+		sprite.Centered = false;
+		AddChild(sprite);
+
+		activeSpriteLayers[layerName] = (sprite, coords);
+		activeSpriteLayerCoords[layerName] = math.createVector(0);
+		activeSpriteLayerColors[layerName] = color;
+		activeSpriteLayerOrder.Add(layerName);
+		RedrawSpriteLayer(layerName, false);
+	}
 	public Guid SaveSprite(string spriteName = "")
 	{
 		if (spriteName == "")
@@ -317,11 +369,17 @@ public class SpriteEvent : EventArgs
 	public Texture2D sprite {get;}
 	public string name{get;}
 	public int order {get;}
-	public SpriteEvent(Texture2D spriteArg, string nameArg, int orderArg = -1)
+	public bool clear {get;}
+	public SpriteEvent(Texture2D spriteArg, string nameArg, int orderArg = -1, bool clearArg = false)
 	{
 		sprite = spriteArg;
 		name = nameArg;
 		order = orderArg;
+		clear = clearArg;
+	}
+	public static SpriteEvent Clear()
+	{
+		return new SpriteEvent(null, "", -1, true);
 	}
 }
 
