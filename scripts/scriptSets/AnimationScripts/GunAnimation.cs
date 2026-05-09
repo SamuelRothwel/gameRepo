@@ -27,22 +27,22 @@ public partial class GunAnimation : Node, AnimationSet
 						"Method|Gun",
 						new Tuple<double, Variant>[]
 						{
-							new Tuple<double, Variant>(0, mAccess.animationManagement.methodCaller("setTexture", new Variant[] { animationName, 0 })),
-							new Tuple<double, Variant>(0.5, mAccess.animationManagement.methodCaller("setTexture", new Variant[] { animationName, 1 })),
+							new Tuple<double, Variant>(0, mAccess.animationManager.methodCaller("setTexture", new Variant[] { animationName, 0 })),
+							new Tuple<double, Variant>(0.5, mAccess.animationManager.methodCaller("setTexture", new Variant[] { animationName, 1 })),
 						}
 					),
 					(
 						"Audio|Gun/audio",
 						new Tuple<double, Variant>[]
 						{
-							new Tuple<double, Variant>(0, mAccess.animationManagement.audioCaller(audioFiles["metalPipe.mp3"], 0, 0))
+							new Tuple<double, Variant>(0, mAccess.animationManager.audioCaller(audioFiles["metalPipe.mp3"], 0, 0))
 						}
 					),
 					(
 						"Method|Gun",
 						new Tuple<double, Variant>[]
 						{
-							new Tuple<double, Variant>(0.5, mAccess.animationManagement.methodCaller("spawnBullet"))
+							new Tuple<double, Variant>(0.5, mAccess.animationManager.methodCaller("spawnBullet"))
 						}
 					),
 				})
@@ -60,8 +60,8 @@ public partial class GunAnimation : Node, AnimationSet
 						"Value|Gun:texture",
 						new Tuple<double, Variant>[]
 						{
-							new Tuple<double, Variant>(0, mAccess.animationManagement.methodCaller("setTexture", new Variant[] { animationName, 0 })),
-							new Tuple<double, Variant>(0.5, mAccess.animationManagement.methodCaller("setTexture", new Variant[] { animationName, 1 })),
+							new Tuple<double, Variant>(0, mAccess.animationManager.methodCaller("setTexture", new Variant[] { animationName, 0 })),
+							new Tuple<double, Variant>(0.5, mAccess.animationManager.methodCaller("setTexture", new Variant[] { animationName, 1 })),
 						}
 					),
 				})
@@ -85,22 +85,22 @@ public partial class GunAnimation : Node, AnimationSet
 						"Method|Gun",
 						new Tuple<double, Variant>[]
 						{
-							new Tuple<double, Variant>(0, mAccess.animationManagement.methodCaller("setTexture", new Variant[] { animationName, 0 })),
-							new Tuple<double, Variant>(0.5, mAccess.animationManagement.methodCaller("setTexture", new Variant[] { animationName, 1 })),
+							new Tuple<double, Variant>(0, mAccess.animationManager.methodCaller("setTexture", new Variant[] { animationName, 0 })),
+							new Tuple<double, Variant>(0.5, mAccess.animationManager.methodCaller("setTexture", new Variant[] { animationName, 1 })),
 						}
 					),
 					(
 						"Audio|Gun/audio",
 						new Tuple<double, Variant>[]
 						{
-							new Tuple<double, Variant>(0, mAccess.animationManagement.audioCaller(audioFiles["metalPipe.mp3"], 0, 0))
+							new Tuple<double, Variant>(0, mAccess.animationManager.audioCaller(audioFiles["metalPipe.mp3"], 0, 0))
 						}
 					),
 					(
 						"Method|Gun",
 						new Tuple<double, Variant>[]
 						{
-							new Tuple<double, Variant>(0, mAccess.animationManagement.methodCaller("spawnBullet"))
+							new Tuple<double, Variant>(0, mAccess.animationManager.methodCaller("spawnBullet"))
 						}
 					),
 				})

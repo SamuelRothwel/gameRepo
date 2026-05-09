@@ -27,6 +27,10 @@ namespace coolbeats.scripts.managerScripts
         public string selectedType {get {return _selectedType;} set {_selectedType = value; unitSelected.Invoke(this, new EventArgs());}}
         team activeTeam;
         Key activeKey = Key.None;
+        float minZoom = 0.5f;
+        float maxZoom = 5.5f;
+        float targetZoom;
+        float currentZoom;
         public override void setup()
         {
             //mappings = new List<(string, Key)>();
@@ -39,12 +43,29 @@ namespace coolbeats.scripts.managerScripts
             //}
             activeTeam = mAccess.teamManager.teams[0];
             pen = mAccess.entityManager.getEntity("pen") as pen;
+            currentZoom = 1;
+            targetZoom = currentZoom;
+        }
+        public override void _Process(double delta)
+        {
+            if (currentZoom < targetZoom)
+            {
+                currentZoom = MathF.Min((float)(currentZoom + ((targetZoom - currentZoom)*0.5f + 5)*delta), targetZoom);
+                setCameraScale(currentZoom);
+            } else if (currentZoom > targetZoom)
+            {
+                currentZoom = MathF.Max((float)(currentZoom + ((targetZoom - currentZoom)*2 - 5)*delta), targetZoom);
+                setCameraScale(currentZoom);
+            }
         }
         public void setCamera(Camera2D cam)
         {
             camera = cam;
             camera.AddChild(pen);   
             cameraOffset = new Vector2(-640, -360);    
+        }
+        public void zoomCamera()
+        {
         }
         public void setCameraScale(float scale)
         {
@@ -62,122 +83,140 @@ namespace coolbeats.scripts.managerScripts
         }
         public override async void _UnhandledInput(InputEvent inp)
         {
-            if (mAccess.sceneManager.gameStates["moveCamera"])
+            
+            if (inp is InputEventMouseMotion motion)
             {
-                
+                if (dragging)
+                {
+                    if (mAccess.sceneManager.gameStates["moveCamera"])
+                    {
+                        camera.Position -= motion.Relative/camera.Zoom;
+                    }
+                }
+                if (selecting)
+                {
+                    if (mAccess.sceneManager.gameStates["unitControl"])
+                    {
+                        pen.drawRectangle(scaleLocalCoords(startSelect), scaleLocalCoords(motion.GlobalPosition));
+                    }
+                }
             }
-
-            switch (mAccess.sceneManager.gameStates)
+            else if (inp is InputEventMouseButton mouse)
             {
-                case "inGame":
-                    if (inp is InputEventMouseMotion motion)
-                    {
-                        if (dragging)
+                switch (mouse.ButtonIndex)
+                {
+                    case MouseButton.Left:
+                        if (activeKey != Key.None)
                         {
-                            camera.Position -= motion.Relative;
-                        }
-                        if (selecting)
-                        {
-                            pen.drawRectangle(scaleLocalCoords(startSelect), scaleLocalCoords(motion.GlobalPosition));
-                        }
-                    }
-                    else if (inp is InputEventMouseButton mouse)
-                    {
-                        switch (mouse.ButtonIndex)
-                        {
-                            case MouseButton.Left:
-                                if (activeKey != Key.None)
-                                {
-                                    if (mouse.Pressed)
-                                    {
-                                        sendTargetCommand(scaleCoords(mouse.GlobalPosition));
-                                        activeKey = Key.None;
-                                    }
-                                } else
-                                {
-                                    if (mouse.Pressed)
-                                    {
-                                        startSelect = mouse.Position;
-                                        selecting = true;
-                                    } else
-                                    {
-                                        if (selecting)
-                                        {
-                                            selecting = false;
-                                            mAccess.teamManager.UpdateTeamVisions();
-                                            for (int i = 0; i < selectedUnits.Count; i++)
-                                            {
-                                                mAccess.unitManager.units[selectedUnits[i]].selected = false;
-                                            }
-                                            selectedUnits = new List<Guid>();
-                                            mAccess.teamManager.searchBVH(activeTeam.BVH, ref selectedUnits, math.getMinMax(scaleCoords(startSelect), scaleCoords(mouse.GlobalPosition)));
-                                            int maxPriority = 0;
-                                            selectedTypes = new Dictionary<string, List<Guid>>();
-                                            string newSelectedType = "";
-                                            for (int i = 0; i < selectedUnits.Count; i++)
-                                            {
-                                                unitControler unit = mAccess.unitManager.units[selectedUnits[i]];
-                                                unit.selected = true;
-                                                if (!selectedTypes.ContainsKey(unit.type))
-                                                {
-                                                    selectedTypes[unit.type] = new List<Guid>();
-                                                }
-                                                selectedTypes[unit.type].Add(unit.ID);
-                                                if (maxPriority < unit.priority)
-                                                {
-                                                    newSelectedType = unit.type;
-                                                }
-                                            }
-                                            selectedType = newSelectedType;
-                                            pen.erase();
-                                        }
-                                    }
-                                }
-                                break;
-                            case MouseButton.Right:
-                                if (mouse.Pressed)
-                                {
-                                    activeKey = Key.None;
-                                    sendTargetCommand(scaleCoords(mouse.GlobalPosition));
-                                }
-                                break;
-                            case MouseButton.Middle:
-                                if (mouse.Pressed)
-                                {
-                                    dragging = true;
-                                } else
-                                {
-                                    dragging = false;
-                                }
-                                break;
-                            case MouseButton.WheelUp:
-                                setCameraScale(0.5f);
-                                break;
-                            case MouseButton.WheelDown:
-                                setCameraScale(1f);
-                                break;
-                        }
-                    }
-                    else if (inp is InputEventKey key)
-                    {
-                        (string[], string) commandInstruction;
-                        bool hasCommand = mAccess.unitManager.commandSets[selectedType].Item2.TryGetValue(key.Keycode, out commandInstruction);
-                        if (hasCommand)
-                        {
-                            if (commandInstruction.Item1.FirstOrDefault() == "active")
+                            if (mouse.Pressed)
                             {
-                                command com = new command(commandInstruction.Item2);
-                                sendCommands(com, commandInstruction, key.Keycode);
+                                if (mAccess.sceneManager.gameStates["unitControl"])
+                                {
+                                    sendTargetCommand(scaleCoords(mouse.GlobalPosition));
+                                    activeKey = Key.None;
+                                } else if (mAccess.sceneManager.gameStates["draw"])
+                                {
+                                    
+                                }
+                            }
+                        } else
+                        {
+                            if (mouse.Pressed)
+                            {
+                                if (mAccess.sceneManager.gameStates["unitControl"])
+                                {
+                                    startSelect = mouse.Position;
+                                    selecting = true;
+                                } else if (mAccess.sceneManager.gameStates["draw"])
+                                {
+                                    mAccess.creatorManager.click(scaleCoords(mouse.GlobalPosition));
+                                }
                             } else
                             {
-                                activeKey = key.Keycode;
+                                if (mAccess.sceneManager.gameStates["unitControl"])
+                                {
+                                    if (selecting)
+                                    {
+                                        selecting = false;
+                                        mAccess.teamManager.UpdateTeamVisions();
+                                        for (int i = 0; i < selectedUnits.Count; i++)
+                                        {
+                                            mAccess.unitManager.units[selectedUnits[i]].selected = false;
+                                        }
+                                        selectedUnits = new List<Guid>();
+                                        mAccess.teamManager.searchBVH(activeTeam.BVH, ref selectedUnits, math.getMinMax(scaleCoords(startSelect), scaleCoords(mouse.GlobalPosition)));
+                                        int maxPriority = 0;
+                                        selectedTypes = new Dictionary<string, List<Guid>>();
+                                        string newSelectedType = "";
+                                        for (int i = 0; i < selectedUnits.Count; i++)
+                                        {
+                                            unitControler unit = mAccess.unitManager.units[selectedUnits[i]];
+                                            unit.selected = true;
+                                            if (!selectedTypes.ContainsKey(unit.type))
+                                            {
+                                                selectedTypes[unit.type] = new List<Guid>();
+                                            }
+                                            selectedTypes[unit.type].Add(unit.ID);
+                                            if (maxPriority < unit.priority)
+                                            {
+                                                newSelectedType = unit.type;
+                                            }
+                                        }
+                                        selectedType = newSelectedType;
+                                        pen.erase();
+                                    }
+                                }
                             }
                         }
+                        break;
+                    case MouseButton.Right:
+                        if (mouse.Pressed)
+                        {
+                            if (mAccess.sceneManager.gameStates["unitControl"])
+                            {
+                                activeKey = Key.None;
+                                sendTargetCommand(scaleCoords(mouse.GlobalPosition));
+                            }
+                        }
+                        break;
+                    case MouseButton.Middle:
+                        if (mouse.Pressed)
+                        {
+                            dragging = true;
+                        } else
+                        {
+                            dragging = false;
+                        }
+                        break;
+                    case MouseButton.WheelUp:
+                        if (mAccess.sceneManager.gameStates["moveCamera"])
+                        {
+                            targetZoom = MathF.Min(targetZoom + 0.5f, maxZoom);
+                        }
+                        break;
+                    case MouseButton.WheelDown:
+                        if (mAccess.sceneManager.gameStates["moveCamera"])
+                        {
+                            targetZoom = MathF.Max(targetZoom - 0.5f, minZoom);
+                        }
+                        break;
+                }
+            }
+            else if (inp is InputEventKey key)
+            {
+                (string[], string) commandInstruction;
+                bool hasCommand = mAccess.unitManager.commandSets[selectedType].Item2.TryGetValue(key.Keycode, out commandInstruction);
+                if (hasCommand)
+                {
+                    if (commandInstruction.Item1.FirstOrDefault() == "active")
+                    {
+                        command com = new command(commandInstruction.Item2);
+                        sendCommands(com, commandInstruction, key.Keycode);
+                    } else
+                    {
+                        activeKey = key.Keycode;
                     }
-                break;
-                case "spriteMaker":
-                
-                break;
+                }
             }
         }
         public void sendTargetCommand(Vector2 position)

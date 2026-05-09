@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://cdoj5x7n4ncmf"]
+
+[ext_resource type="Script" path="res://scripts/UIScripts/ColorPicker.cs" id="1_v00qh"]
+
+[node name="colorPicker" type="Control"]
+visible = false
+offset_right = 180.0
+offset_bottom = 360.0
+script = ExtResource("1_v00qh")

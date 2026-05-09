@@ -17,7 +17,7 @@ public partial class EntityManagement : managerNode
 		foreach (Node entity in entities)
 		{
 			PackedScene packedEntity = new PackedScene();
-			mAccess.logicManagement.preProcess(entity);
+			mAccess.logicManager.preProcess(entity);
 			packedEntity.Pack(entity);
 			packedEntities.Add(entity.Name, packedEntity);
 		}

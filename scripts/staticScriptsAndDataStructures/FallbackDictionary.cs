@@ -19,6 +19,10 @@ public class FallbackDictionary<TAccessor, TKey, TValue>
     {
         dictionarySet = new Dictionary<TAccessor, Dictionary<TKey, TValue>>();
     }
+    public void Add(TAccessor accessor, Dictionary<TKey, TValue> newDict)
+    {
+        dictionarySet[accessor] = newDict;
+    }
     public void SetDefault(TAccessor accessor)
     {
         fallback = accessor;
@@ -28,9 +32,9 @@ public class FallbackDictionary<TAccessor, TKey, TValue>
     {
         currentDictionary = accessor;
     }
-    public void Add(TAccessor accessor, Dictionary<TKey, TValue> newDict)
+    public TAccessor GetState()
     {
-        dictionarySet[accessor] = newDict;
+        return currentDictionary;
     }
     public TValue this[TKey key]
     {

@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3 uid="uid://nou2fkswxvvc"]
+[gd_scene load_steps=25 format=3 uid="uid://nou2fkswxvvc"]
 
 [ext_resource type="Script" path="res://scripts/managerScripts/LogicManagement.cs" id="1_0nxiu"]
 [ext_resource type="Script" path="res://scripts/managerScripts/EntityManagement.cs" id="1_j3fb0"]
@@ -14,7 +14,7 @@
 [ext_resource type="Script" path="res://scripts/managerScripts/LifetimeManagement.cs" id="11_is8of"]
 [ext_resource type="PackedScene" uid="uid://bhb8es5j737ax" path="res://Scenes/UIScenes/ui_assets.tscn" id="11_n1g5g"]
 [ext_resource type="PackedScene" uid="uid://chdl5ocyqtpcw" path="res://Scenes/setScenes/sprites.tscn" id="13_0w3ej"]
-[ext_resource type="Script" path="res://scripts/managerScripts/creatorManagement.cs" id="13_ktj7k"]
+[ext_resource type="Script" path="res://scripts/managerScripts/CreatorManagement.cs" id="13_gbx5e"]
 [ext_resource type="Script" path="res://scripts/managerScripts/SpriteManagement.cs" id="16_gl3df"]
 [ext_resource type="Script" path="res://scripts/managerScripts/GameManagement.cs" id="18_m1s72"]
 [ext_resource type="Script" path="res://scripts/managerScripts/DamageManagement.cs" id="19_02thw"]
@@ -22,6 +22,8 @@
 [ext_resource type="Script" path="res://scripts/managerScripts/UnitManagement.cs" id="20_473qp"]
 [ext_resource type="Script" path="res://scripts/managerScripts/TeamManagement.cs" id="21_reklc"]
 [ext_resource type="Script" path="res://scripts/managerScripts/RecycleManagement.cs" id="22_ff552"]
+[ext_resource type="Script" path="res://scripts/managerScripts/ColorManagement.cs" id="23_yrje6"]
+[ext_resource type="Script" path="res://scripts/managerScripts/FileManagement.cs" id="24_r006g"]
 
 [node name="managers" type="Node"]
 
@@ -34,6 +36,9 @@ script = ExtResource("19_02thw")
 [node name="AnimationManager" type="Node" parent="." groups=["admin"]]
 script = ExtResource("1_wy0ue")
 packedAnimations = ExtResource("2_5o3s7")
+
+[node name="FileManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("24_r006g")
 
 [node name="LogicManager" type="Node" parent="." groups=["admin"]]
 script = ExtResource("1_0nxiu")
@@ -54,7 +59,7 @@ script = ExtResource("3_id3hb")
 UIScene = ExtResource("11_n1g5g")
 
 [node name="CreatorManager" type="Node" parent="." groups=["admin"]]
-script = ExtResource("13_ktj7k")
+script = ExtResource("13_gbx5e")
 
 [node name="UnitManager" type="Node" parent="." groups=["admin"]]
 script = ExtResource("20_473qp")
@@ -64,6 +69,9 @@ script = ExtResource("21_reklc")
 
 [node name="LifetimeManager" type="Node" parent="." groups=["admin"]]
 script = ExtResource("11_is8of")
+
+[node name="ColorManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("23_yrje6")
 
 [node name="SpriteManager" type="Node" parent="." groups=["admin"]]
 script = ExtResource("16_gl3df")

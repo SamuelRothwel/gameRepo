@@ -6,6 +6,7 @@ using System.Linq;
 public partial class DamageManagement : managerNode
 {
 	// colour health resistance type
+	/*
 	Dictionary<int, (int, int)>  colorValues;
     Dictionary<string, Dictionary<string, (int, int)[][,]>> healthMaps;
     public override void setup()
@@ -24,4 +25,5 @@ public partial class DamageManagement : managerNode
 	{
 		return healthMaps[name].Values.First().First();
 	}
+	*/
 }

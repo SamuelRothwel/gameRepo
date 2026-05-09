@@ -10,18 +10,13 @@ using coolbeats.scripts.logicScripts.Bases;
 public partial class SpriteManagement : managerNode
 {
     [Export] public PackedScene packedSpriteMaps;
-    public Dictionary<int, Color> colors;
-    public Dictionary<string, Dictionary<string, int[][,]>> spriteMaps;
+    public Dictionary<string, Dictionary<string, string[][,]>> spriteMaps;
     public Dictionary<string, PackedScene[]> spriteHitBoxes;
     public Dictionary<int, (int, int)> directionLookup;
     public Dictionary<int, int> directionOrder;
     public override void setup()
     {
-        colors = new Dictionary<int, Color>();
-        spriteMaps = new Dictionary<string, Dictionary<string, int[][,]>>();
-        colors[0] = new Color(0, 0, 0, 0);
-        colors[1] = new Color(0, 0, 0);
-        colors[2] = new Color(0.5f, 0.5f, 0.5f);
+        spriteMaps = new Dictionary<string, Dictionary<string, string[][,]>>();
 
         directionLookup = new Dictionary<int, (int, int)>
         {
@@ -63,7 +58,7 @@ public partial class SpriteManagement : managerNode
     public void createHitBoxes(string name)
     {
             GD.Print("sprite: " + name);
-        int[,] spriteEdges = groupPattenAlgo(spriteMaps[name].First().Value[0].Select(x => x != 0));
+        int[,] spriteEdges = groupPattenAlgo(spriteMaps[name].First().Value[0].Select(x => x != ""));
         List<List<(int, int)>> coordinates = new List<List<(int, int)>>();
         for (int i = 0; i < spriteEdges.GetLength(0); i++)
         {
@@ -228,12 +223,12 @@ public partial class SpriteManagement : managerNode
             foreach (PackedSprites sprites in node.GetChildren())
             {
                 sprites.setup();
-                spriteMaps[node.Name] =  new Dictionary<string, int[][,]>();
+                spriteMaps[node.Name] =  new Dictionary<string, string[][,]>();
                 decodeAnimationSprites(sprites.packedSprites, node.Name, sprites.Name);
             }
         }
     }
-    public void decodeAnimationSprites(((int, int)[], int, int)[][] images, string objectName, string animationName)
+    public void decodeAnimationSprites(((int, int)[], string, int)[][] images, string objectName, string animationName)
     {
         spriteMaps[objectName][animationName] = images.Select(x => drawSpriteMap(x)).ToArray();
     }
@@ -307,41 +302,50 @@ public partial class SpriteManagement : managerNode
         }
         return lineOut;
     }
-    public Image mapToImage(int[,] map)
+    public ((int, int)[], string, int)[] vectorsToCoords(List<Vector2> coords, string color = "", int layer = 1)
+    {
+        return new ((int, int)[], string, int)[] { (coords.Select(x => ((int)x.Y, (int)x.X)).ToArray(), color, layer ) };
+    }
+    public Image vectorsToImage(List<Vector2> coords, string color = "black")
+    {
+        return coordsToImage(vectorsToCoords(coords, color));
+    }
+    public Image coordsToImage(((int, int)[], string, int)[] shapes)
+    {
+        return mapToImage(drawSpriteMap(shapes));
+    }
+    public Image mapToImage(string[,] map)
     {
         int height = map.GetLength(0);
         int width = map.GetLength(1);
-        for (int i = 0; i < height; i++)
-        {
-            string e = "";
-            for (int j = 0; j < width; j++)
-            {
-                e = e + map[i, j].ToString();
-            }
-        }
         Image image = Image.Create(width, height, false, Image.Format.Rgba8);
         for (int i = 0; i < height; i++)
         {
             for (int j = 0; j < width; j++)
             {
-                if (map[i, j] != 0)
+                if (map[i, j] != "")
                 {
-                    image.SetPixel(j, i, colors[map[i,j]]);
+                    image.SetPixel(j, i, mAccess.colorManager.getColor(map[i,j]));
                 }
             }
         }
         return image;
     }
-    public int[,] drawSpriteMap(((int, int)[], int, int)[] shapes)
+    public string[,] drawSpriteMap(((int, int)[], string, int)[] shapes)
     {
-        Dictionary<(int, int), (int, int)> colorMap = new Dictionary<(int, int), (int, int)>();
+        Dictionary<(int, int), (int, string)> colorMap = new Dictionary<(int, int), (int, string)>();
 
         for (int i = 0; i < shapes.Length; i++)
         {
+            if (shapes[i].Item1.Length < 3)
+            {
+                return new string[,] { {"black"} };
+            }
             List<(int, int)> coords = getShapeCoordinates(shapes[i].Item1);
+            
             foreach ((int, int) coord in coords)
             {
-                (int, int) mapPoint = colorMap.TryGetValue((coord.Item1, coord.Item2), out mapPoint)? mapPoint : (-1, -1);
+                (int, string) mapPoint = colorMap.TryGetValue((coord.Item1, coord.Item2), out mapPoint)? mapPoint : (-1, "");
                 if (mapPoint.Item1 < shapes[i].Item3)
                 {
                     mapPoint.Item2 = shapes[i].Item2;
@@ -350,9 +354,13 @@ public partial class SpriteManagement : managerNode
                 }
             }
         }
+        if (colorMap.Count < 3)
+        {
+            return new string[,] { {"black"} };
+        }
         int height = colorMap.Keys.Max(x => x.Item1);
         int width = colorMap.Keys.Max(x => x.Item2);
-        int[,] spriteMap = new int[height + 1,width + 1];
+        string[,] spriteMap = new string[height + 1, width + 1];
         foreach ((int, int) k in colorMap.Keys)
         {
             spriteMap[k.Item1, k.Item2] = colorMap[k].Item2;

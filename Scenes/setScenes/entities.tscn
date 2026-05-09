@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://6npwkntkdgxi"]
+[gd_scene load_steps=12 format=3 uid="uid://6npwkntkdgxi"]
 
 [ext_resource type="PackedScene" uid="uid://d8se50ch7t1a" path="res://Scenes/EntityScenes/player.tscn" id="1_bghh0"]
 [ext_resource type="PackedScene" uid="uid://p5wnbcjw3yq5" path="res://Scenes/EntityScenes/projectile.tscn" id="2_gx7hh"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://scripts/logicScripts/AttachedLogic/pen.cs" id="8_cexfp"]
 [ext_resource type="PackedScene" uid="uid://d16y1qohlae4g" path="res://Scenes/EntityScenes/position_transform.tscn" id="8_o2518"]
 [ext_resource type="PackedScene" uid="uid://cmv1kjeioejsk" path="res://Scenes/EntityScenes/healthBar.tscn" id="9_inkn2"]
+[ext_resource type="PackedScene" uid="uid://rsveolvp7gnw" path="res://Scenes/EntityScenes/panel_ui.tscn" id="11_w3a6q"]
 
 [node name="Entities" type="Node"]
 
@@ -34,3 +35,5 @@ position = Vector2(-100, 100)
 [node name="healthBar" parent="." instance=ExtResource("9_inkn2")]
 
 [node name="projectile" parent="." instance=ExtResource("2_gx7hh")]
+
+[node name="panelUI" parent="." groups=["UIBackPanel"] instance=ExtResource("11_w3a6q")]

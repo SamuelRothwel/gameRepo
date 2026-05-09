@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://bhb8es5j737ax"]
+[gd_scene load_steps=6 format=3 uid="uid://bhb8es5j737ax"]
 
 [ext_resource type="PackedScene" uid="uid://dalhs1on3mcak" path="res://Scenes/UIScenes/main_menu_assets.tscn" id="1_ucse1"]
 [ext_resource type="PackedScene" uid="uid://djrn0wsekmbf4" path="res://Scenes/UIScenes/game_ui.tscn" id="2_yxlt8"]
 [ext_resource type="PackedScene" uid="uid://dgrmm1owxwh5y" path="res://Scenes/UIScenes/change_controls.tscn" id="3_pfa7f"]
-[ext_resource type="PackedScene" uid="uid://djucb6judxw0h" path="res://unit_creator.tscn" id="4_jv0go"]
+[ext_resource type="PackedScene" uid="uid://djucb6judxw0h" path="res://Scenes/UIScenes/unit_creator.tscn" id="4_jv0go"]
+[ext_resource type="PackedScene" uid="uid://cdoj5x7n4ncmf" path="res://Scenes/UIScenes/color_picker.tscn" id="5_3c2n4"]
 
 [node name="UIAssets" type="Node"]
 
@@ -14,3 +15,7 @@
 [node name="controls" parent="." instance=ExtResource("3_pfa7f")]
 
 [node name="unitCreator" parent="." instance=ExtResource("4_jv0go")]
+
+[node name="colorPicker" parent="." instance=ExtResource("5_3c2n4")]
+layout_mode = 3
+anchors_preset = 0

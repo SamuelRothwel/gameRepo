@@ -9,13 +9,13 @@ public partial class BarracksSprite : PackedSprites
     public override void setup()
     {
         packedSprites = 
-        new ( (int, int)[], int, int )[][] 
+        new ( (int, int)[], string, int )[][] 
         {
-            new ( (int, int)[], int, int )[]
+            new ( (int, int)[], string, int )[]
             {
                 ( 
                     new[] { (0, 100), (100, 100), (100, 0), (0, 0) }, 
-                    1, 
+                    "black", 
                     0 
                 ),
             },

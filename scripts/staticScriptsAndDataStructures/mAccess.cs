@@ -8,8 +8,8 @@ public static class mAccess
 	public static LayerManagement layerManager;
 	public static UIManagement uiManager;
 	public static EntityManagement entityManager;
-	public static LogicManagement logicManagement;
-	public static AnimationManagement animationManagement;
+	public static LogicManagement logicManager;
+	public static AnimationManagement animationManager;
 	public static LifetimeManagement lifetimeManager;
 	public static SpriteManagement spriteManager;
 	public static GameManagement gameManager;
@@ -18,7 +18,9 @@ public static class mAccess
 	public static TeamManagement teamManager;
 	public static InputManagement inputManager;
 	public static RecycleManagement recycleManager;
-	public static creatorManagement creatorManager;
+	public static CreatorManagement creatorManager;
+	public static ColorManagement colorManager;
+	public static FileManagement fileManager;
 
 	public static void setup(Godot.Collections.Array<Node> managers)
 	{
@@ -39,10 +41,10 @@ public static class mAccess
 					entityManager = manager as EntityManagement;
 					break;
 				case "LogicManager":
-					logicManagement = manager as LogicManagement;
+					logicManager = manager as LogicManagement;
 					break;
 				case "AnimationManager":
-					animationManagement = manager as AnimationManagement;
+					animationManager = manager as AnimationManagement;
 					break;
 				case "LifetimeManager":
 					lifetimeManager = manager as LifetimeManagement;
@@ -69,7 +71,13 @@ public static class mAccess
 					recycleManager = manager as RecycleManagement;
 					break;
 				case "CreatorManager":
-					creatorManager = manager as creatorManagement;
+					creatorManager = manager as CreatorManagement;
+					break;
+				case "ColorManager":
+					colorManager = manager as ColorManagement;
+					break;
+				case "FileManager":
+					fileManager = manager as FileManagement;
 					break;
 				default:
 					GD.Print("invalid manager: " + manager.Name);
@@ -77,15 +85,17 @@ public static class mAccess
 			}
 		}
 		lifetimeManager.setup();
-		animationManagement.setup();
+		animationManager.setup();
 		spriteManager.setup();
 		damageManager.setup();
-		logicManagement.setup();
+		logicManager.setup();
 		sceneManager.setup();
 		layerManager.setup();
 		entityManager.setup();
 		recycleManager.setup();
+		fileManager.setup();
 		uiManager.setup();
+		colorManager.setup();
 		creatorManager.setup();
 		gameManager.setup();
 		unitManager.setup();

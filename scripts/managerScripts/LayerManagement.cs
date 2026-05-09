@@ -33,7 +33,8 @@ public partial class LayerManagement : managerNode
 			{ "inGameUI", "UI1" },
 			{ "camera", "UI3" },
 			{ "pen", "SubUI" },
-			{ "bullet", "Object2" }
+			{ "bullet", "Object2" },
+			{ "UIBackPanel", "UI1" }
 		};
 		groupMasks = new Dictionary<string, string>
 		{
@@ -57,8 +58,14 @@ public partial class LayerManagement : managerNode
 		};
 	}
 	
-	public void addLayer(CanvasItem node)
+	public void addLayer(CanvasItem node, string layer = "")
 	{
+		if (layer != "")
+		{
+			node.ZIndex = layers[layer];
+			return;
+		}
+
 		try
 		{
 			string group = node.GetGroups()[0];

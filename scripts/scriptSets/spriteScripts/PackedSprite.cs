@@ -8,6 +8,6 @@ using Godot;
 public partial class PackedSprites : Node
 {
     //coordinate, shape, image
-    public ((int, int)[], int, int)[][] packedSprites;
+    public ((int, int)[], string, int)[][] packedSprites;
     public virtual void setup() {  }
 }

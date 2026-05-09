@@ -31,6 +31,7 @@ public partial class sceneManagment : managerNode
 		{
 			{"moveCamera", false},
 			{"unitControl", false},
+			{"draw", false},
 		});
 		gameStates.Add("inGame", new Dictionary<string, bool>
 		{
@@ -40,6 +41,7 @@ public partial class sceneManagment : managerNode
 		gameStates.Add("unitCreator", new Dictionary<string, bool>
 		{
 			{"moveCamera", true},
+			{"draw", true},
 		});
 		gameStates.SetDefault("menu");
     }
@@ -81,12 +83,12 @@ public partial class sceneManagment : managerNode
 		{
 			mAccess.layerManager.addLayer(canvasItem);
 		}
-		mAccess.logicManagement.entityCreation(node);
+		mAccess.logicManager.entityCreation(node);
 		if (node is AnimationPlayer player)
 		{
 			foreach (string group in node.GetGroups())
 			{
-				player.AddAnimationLibrary(group, mAccess.animationManagement.animationSets[group]);
+				player.AddAnimationLibrary(group, mAccess.animationManager.animationSets[group]);
 			}
 		}
 	}
