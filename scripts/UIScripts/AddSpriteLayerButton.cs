@@ -6,6 +6,6 @@ public partial class AddSpriteLayerButton : Button
 {
     public override void _Pressed()
     {
-        mAccess.creatorManager.AddSpriteLayer();
+        mAccess.spriteCreatorManager.AddSpriteLayer();
     }
 }

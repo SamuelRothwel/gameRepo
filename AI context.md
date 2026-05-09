@@ -10,5 +10,6 @@ The core flow looks like this:
 LogicManagement loads background logic from Scenes/setScenes/logic.tscn, registers creation flags, and preprocesses entity scenes.
 EntityManagement loads packed entities from Scenes/setScenes/entities.tscn, preprocesses them through logic, then acts as a factory via spawnEntity() / getEntity().
 sceneManagment tracks all nodes added to the tree, applies layers, runs creation logic, and attaches animation libraries to AnimationPlayers.
+sceneManagment.gameStates is a FallbackDictionary whose default is menu, so non-menu states only list true/overridden flags; omitted flags fall back to menu's false values.
 UnitManagement, TeamManagement, and InputManagement form the RTS-style unit selection and command system.
-SpriteManagement, AnimationManagement, DamageManagement, LifetimeManagement, RecycleManagement, UIManagement, and CreatorManagement provide supporting systems.
+SpriteManagement, AnimationManagement, DamageManagement, LifetimeManagement, RecycleManagement, UIManagement, and SpriteCreatorManagement provide supporting systems.

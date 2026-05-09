@@ -18,7 +18,7 @@ public static class mAccess
 	public static TeamManagement teamManager;
 	public static InputManagement inputManager;
 	public static RecycleManagement recycleManager;
-	public static CreatorManagement creatorManager;
+	public static SpriteCreatorManagement spriteCreatorManager;
 	public static ColorManagement colorManager;
 	public static FileManagement fileManager;
 	public static EntityFrameworkManagement entityFrameworkManager;
@@ -71,8 +71,8 @@ public static class mAccess
 				case "RecyclerManager":
 					recycleManager = manager as RecycleManagement;
 					break;
-				case "CreatorManager":
-					creatorManager = manager as CreatorManagement;
+				case "SpriteCreatorManager":
+					spriteCreatorManager = manager as SpriteCreatorManagement;
 					break;
 				case "ColorManager":
 					colorManager = manager as ColorManagement;
@@ -101,7 +101,7 @@ public static class mAccess
 		entityFrameworkManager.setup();
 		uiManager.setup();
 		colorManager.setup();
-		creatorManager.setup();
+		spriteCreatorManager.setup();
 		gameManager.setup();
 		unitManager.setup();
 		teamManager.setup();

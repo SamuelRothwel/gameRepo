@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 
-public partial class CreatorManagement : managerNode
+public partial class SpriteCreatorManagement : managerNode
 {
 	const float InactiveLayerAlphaMultiplier = 0.5f;
 	public Sprite2D tempSprite;
@@ -109,6 +109,73 @@ public partial class CreatorManagement : managerNode
 			.ToList();
 
 		return mAccess.entityFrameworkManager.SaveSprite(spriteName, layers);
+	}
+	public Texture2D CreateStoredSpritePreview(StoredSprite storedSprite)
+	{
+		List<Image> layerImages = new List<Image>();
+		foreach (StoredSpriteLayer layer in storedSprite.Layers.OrderBy(layer => layer.Order))
+		{
+			List<SpriteLayerPoint> points = JsonSerializer.Deserialize<List<SpriteLayerPoint>>(layer.CoordinatesJson) ?? new List<SpriteLayerPoint>();
+			if (points.Count == 0)
+			{
+				continue;
+			}
+
+			Image layerImage = mAccess.spriteManager.vectorsToImage(points.Select(point => new Vector2(point.X, point.Y)).ToList(), "black");
+			ApplySavedColor(layerImage, colorFromStoredLayer(layer));
+			layerImages.Add(layerImage);
+		}
+
+		if (layerImages.Count == 0)
+		{
+			return ImageTexture.CreateFromImage(Image.Create(1, 1, false, Image.Format.Rgba8));
+		}
+
+		int width = layerImages.Max(image => image.GetWidth());
+		int height = layerImages.Max(image => image.GetHeight());
+		Image preview = Image.Create(width, height, false, Image.Format.Rgba8);
+		foreach (Image layerImage in layerImages)
+		{
+			BlendImage(preview, layerImage);
+		}
+
+		return ImageTexture.CreateFromImage(preview);
+	}
+	Color colorFromStoredLayer(StoredSpriteLayer layer)
+	{
+		string color = layer.Color.StartsWith("#") ? layer.Color : "#" + layer.Color;
+		return new Color(color);
+	}
+	void BlendImage(Image target, Image source)
+	{
+		for (int x = 0; x < source.GetWidth(); x++)
+		{
+			for (int y = 0; y < source.GetHeight(); y++)
+			{
+				Color sourceColor = source.GetPixel(x, y);
+				if (sourceColor.A <= 0)
+				{
+					continue;
+				}
+
+				Color targetColor = target.GetPixel(x, y);
+				float outAlpha = sourceColor.A + targetColor.A * (1f - sourceColor.A);
+				if (outAlpha <= 0)
+				{
+					target.SetPixel(x, y, new Color(0, 0, 0, 0));
+					continue;
+				}
+
+				Color output = new Color
+				(
+					(sourceColor.R * sourceColor.A + targetColor.R * targetColor.A * (1f - sourceColor.A)) / outAlpha,
+					(sourceColor.G * sourceColor.A + targetColor.G * targetColor.A * (1f - sourceColor.A)) / outAlpha,
+					(sourceColor.B * sourceColor.A + targetColor.B * targetColor.A * (1f - sourceColor.A)) / outAlpha,
+					outAlpha
+				);
+				target.SetPixel(x, y, output);
+			}
+		}
 	}
 	void UpdateSpriteLayerZIndexes()
 	{

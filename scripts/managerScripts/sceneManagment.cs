@@ -38,10 +38,13 @@ public partial class sceneManagment : managerNode
 			{"moveCamera", true},
 			{"unitControl", true},
 		});
-		gameStates.Add("unitCreator", new Dictionary<string, bool>
+		gameStates.Add("spriteCreator", new Dictionary<string, bool>
 		{
 			{"moveCamera", true},
 			{"draw", true},
+		});
+		gameStates.Add("unitCreator", new Dictionary<string, bool>
+		{
 		});
 		gameStates.SetDefault("menu");
     }
@@ -64,12 +67,18 @@ public partial class sceneManagment : managerNode
 		gameStates.Switch("menu");
 		mAccess.uiManager.changeUI("main");
 	}
+	public void spriteCreator()
+	{
+		GetTree().ChangeSceneToPacked(menuScene);
+		gameStates.Switch("spriteCreator");
+		mAccess.uiManager.changeUI("spriteCreator");
+		mAccess.entityManager.spawnEntity("playerCamera");
+	}
 	public void unitCreator()
 	{
 		GetTree().ChangeSceneToPacked(menuScene);
 		gameStates.Switch("unitCreator");
 		mAccess.uiManager.changeUI("unitCreator");
-		mAccess.entityManager.spawnEntity("playerCamera");
 	}
 
 	private void TerminateNode(Node node)

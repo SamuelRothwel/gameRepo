@@ -6,6 +6,9 @@ public partial class SpriteCreatorSidebar : VBoxContainer
 {
     readonly Dictionary<string, Button> colorButtons = new Dictionary<string, Button>();
     GridContainer colorGrid;
+    Button savedSpritesButton;
+    ScrollContainer savedSpritesScroll;
+    VBoxContainer savedSpritesList;
 
     readonly string[] colorSlots = new string[]
     {
@@ -24,6 +27,21 @@ public partial class SpriteCreatorSidebar : VBoxContainer
         colorGrid.CustomMinimumSize = new Vector2(120, 120);
         AddChild(colorGrid);
         MoveChild(colorGrid, 0);
+
+        savedSpritesButton = createButton("Saved Sprites");
+        savedSpritesButton.CustomMinimumSize = new Vector2(127, 31);
+        savedSpritesButton.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+        savedSpritesButton.Pressed += toggleSavedSpritesList;
+        AddChild(savedSpritesButton);
+        MoveChild(savedSpritesButton, 1);
+
+        savedSpritesScroll = new ScrollContainer();
+        savedSpritesScroll.CustomMinimumSize = new Vector2(140, 240);
+        savedSpritesScroll.Visible = false;
+        savedSpritesList = new VBoxContainer();
+        savedSpritesScroll.AddChild(savedSpritesList);
+        AddChild(savedSpritesScroll);
+        MoveChild(savedSpritesScroll, 2);
 
         foreach (string colorName in colorSlots)
         {
@@ -106,5 +124,57 @@ public partial class SpriteCreatorSidebar : VBoxContainer
         {
             setButtonColor(colorButtons[e.name], e.color);
         }
+    }
+
+    void toggleSavedSpritesList()
+    {
+        savedSpritesScroll.Visible = !savedSpritesScroll.Visible;
+        if (savedSpritesScroll.Visible)
+        {
+            populateSavedSpritesList();
+        }
+    }
+
+    void populateSavedSpritesList()
+    {
+        foreach (Node child in savedSpritesList.GetChildren())
+        {
+            child.QueueFree();
+        }
+
+        List<StoredSprite> sprites = mAccess.entityFrameworkManager.GetSprites();
+        if (sprites.Count == 0)
+        {
+            Label emptyLabel = new Label();
+            emptyLabel.Text = "No saved sprites";
+            savedSpritesList.AddChild(emptyLabel);
+            return;
+        }
+
+        foreach (StoredSprite storedSprite in sprites)
+        {
+            savedSpritesList.AddChild(createSavedSpriteRow(storedSprite));
+        }
+    }
+
+    Control createSavedSpriteRow(StoredSprite storedSprite)
+    {
+        HBoxContainer row = new HBoxContainer();
+        row.CustomMinimumSize = new Vector2(130, 58);
+
+        TextureRect preview = new TextureRect();
+        preview.CustomMinimumSize = new Vector2(54, 54);
+        preview.Texture = mAccess.spriteCreatorManager.CreateStoredSpritePreview(storedSprite);
+        preview.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
+        preview.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
+        row.AddChild(preview);
+
+        Label nameLabel = new Label();
+        nameLabel.Text = storedSprite.Name;
+        nameLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        nameLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        row.AddChild(nameLabel);
+
+        return row;
     }
 }

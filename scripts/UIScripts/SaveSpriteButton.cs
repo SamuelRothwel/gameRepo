@@ -5,7 +5,7 @@ public partial class SaveSpriteButton : Button
 {
 	public override void _Pressed()
 	{
-		Guid spriteId = mAccess.creatorManager.SaveSprite();
+		Guid spriteId = mAccess.spriteCreatorManager.SaveSprite();
 		GD.Print("Saved sprite: " + spriteId);
 	}
 }

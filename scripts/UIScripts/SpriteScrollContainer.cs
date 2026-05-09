@@ -22,7 +22,7 @@ public partial class SpriteScrollContainer : VBoxContainer
 		spriteSize = math.createVector(180);
 		marginLength = math.createVector(10);
 		borderLength = 5;
-		mAccess.creatorManager.spriteChangeEvent += spriteChange;
+		mAccess.spriteCreatorManager.spriteChangeEvent += spriteChange;
 	}
 	void spriteChange(object sender, SpriteEvent e)
 	{
@@ -71,7 +71,7 @@ public partial class SpriteScrollContainer : VBoxContainer
 
 		if (order < 0)
 		{
-			order = mAccess.creatorManager.GetSpriteLayerOrder(Name);
+			order = mAccess.spriteCreatorManager.GetSpriteLayerOrder(Name);
 		}
 
 		if (order >= 0)
@@ -87,7 +87,7 @@ public partial class SpriteScrollContainer : VBoxContainer
 			draggedSlot = slot;
 			dragStartPosition = mouseButton.GlobalPosition;
 			dragMoved = false;
-			mAccess.creatorManager.SetActiveSpriteLayer(Name);
+			mAccess.spriteCreatorManager.SetActiveSpriteLayer(Name);
 		}
 	}
 	public override void _Input(InputEvent inputEvent)
@@ -124,11 +124,11 @@ public partial class SpriteScrollContainer : VBoxContainer
 	{
 		if (dragMoved)
 		{
-			mAccess.creatorManager.MoveSpriteLayer(draggedSpriteName, draggedSlot.GetIndex());
+			mAccess.spriteCreatorManager.MoveSpriteLayer(draggedSpriteName, draggedSlot.GetIndex());
 		}
 		else
 		{
-			mAccess.creatorManager.SetActiveSpriteLayer(draggedSpriteName);
+			mAccess.spriteCreatorManager.SetActiveSpriteLayer(draggedSpriteName);
 		}
 
 		draggedSpriteName = null;

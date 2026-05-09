@@ -129,7 +129,7 @@ namespace coolbeats.scripts.managerScripts
                                     selecting = true;
                                 } else if (mAccess.sceneManager.gameStates["draw"])
                                 {
-                                    mAccess.creatorManager.click(scaleCoords(mouse.GlobalPosition));
+                                    mAccess.spriteCreatorManager.click(scaleCoords(mouse.GlobalPosition));
                                 }
                             } else
                             {

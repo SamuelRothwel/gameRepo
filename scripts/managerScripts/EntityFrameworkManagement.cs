@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.EntityFrameworkCore;
 
 public class StoredSprite
@@ -80,5 +81,20 @@ public partial class EntityFrameworkManagement : managerNode
 		context.Sprites.Add(sprite);
 		context.SaveChanges();
 		return sprite.Id;
+	}
+
+	public List<StoredSprite> GetSprites()
+	{
+		using GameDbContext context = new GameDbContext();
+		return context.Sprites
+			.Include(sprite => sprite.Layers)
+			.Select(sprite => new StoredSprite
+			{
+				Id = sprite.Id,
+				Name = sprite.Name,
+				Layers = sprite.Layers.OrderBy(layer => layer.Order).ToList()
+			})
+			.OrderBy(sprite => sprite.Name)
+			.ToList();
 	}
 }
