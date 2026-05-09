@@ -21,6 +21,7 @@ public static class mAccess
 	public static CreatorManagement creatorManager;
 	public static ColorManagement colorManager;
 	public static FileManagement fileManager;
+	public static EntityFrameworkManagement entityFrameworkManager;
 
 	public static void setup(Godot.Collections.Array<Node> managers)
 	{
@@ -79,6 +80,9 @@ public static class mAccess
 				case "FileManager":
 					fileManager = manager as FileManagement;
 					break;
+				case "EntityFrameworkManager":
+					entityFrameworkManager = manager as EntityFrameworkManagement;
+					break;
 				default:
 					GD.Print("invalid manager: " + manager.Name);
 					break;
@@ -94,6 +98,7 @@ public static class mAccess
 		entityManager.setup();
 		recycleManager.setup();
 		fileManager.setup();
+		entityFrameworkManager.setup();
 		uiManager.setup();
 		colorManager.setup();
 		creatorManager.setup();

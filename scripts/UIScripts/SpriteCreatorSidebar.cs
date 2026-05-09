@@ -1,9 +1,11 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
-public partial class ColorToolMenu : GridContainer
+public partial class SpriteCreatorSidebar : VBoxContainer
 {
-    readonly System.Collections.Generic.Dictionary<string, Button> colorButtons = new System.Collections.Generic.Dictionary<string, Button>();
+    readonly Dictionary<string, Button> colorButtons = new Dictionary<string, Button>();
+    GridContainer colorGrid;
 
     readonly string[] colorSlots = new string[]
     {
@@ -15,15 +17,20 @@ public partial class ColorToolMenu : GridContainer
 
     public override void _Ready()
     {
-        Columns = 2;
-        CustomMinimumSize = new Vector2(120, 180);
+        CustomMinimumSize = new Vector2(150, 0);
+
+        colorGrid = new GridContainer();
+        colorGrid.Columns = 2;
+        colorGrid.CustomMinimumSize = new Vector2(120, 120);
+        AddChild(colorGrid);
+        MoveChild(colorGrid, 0);
 
         foreach (string colorName in colorSlots)
         {
             Button button = createColorButton(colorName, mAccess.colorManager.getColor(colorName));
             button.GuiInput += (InputEvent inputEvent) => onColorButtonInput(inputEvent, colorName, button);
             colorButtons[colorName] = button;
-            AddChild(button);
+            colorGrid.AddChild(button);
         }
 
         mAccess.colorManager.colorChanged += onColorChanged;

@@ -1,6 +1,8 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
 
 public partial class CreatorManagement : managerNode
 {
@@ -88,6 +90,25 @@ public partial class CreatorManagement : managerNode
 		activeSpriteLayerOrder.RemoveAt(oldOrder);
 		activeSpriteLayerOrder.Insert(order, name);
 		UpdateSpriteLayerZIndexes();
+	}
+	public Guid SaveSprite(string spriteName = "")
+	{
+		if (spriteName == "")
+		{
+			spriteName = "Sprite " + DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss");
+		}
+
+		List<StoredSpriteLayer> layers = activeSpriteLayerOrder
+			.Select((name, order) => new StoredSpriteLayer
+			{
+				Name = name,
+				Order = order,
+				Color = activeSpriteLayerColors[name].ToHtml(true),
+				CoordinatesJson = JsonSerializer.Serialize(activeSpriteLayers[name].Item2.Select(coord => new SpriteLayerPoint(coord.X, coord.Y)).ToList())
+			})
+			.ToList();
+
+		return mAccess.entityFrameworkManager.SaveSprite(spriteName, layers);
 	}
 	void UpdateSpriteLayerZIndexes()
 	{
@@ -234,5 +255,17 @@ public class SpriteEvent : EventArgs
 		sprite = spriteArg;
 		name = nameArg;
 		order = orderArg;
+	}
+}
+
+public class SpriteLayerPoint
+{
+	public float X { get; set; }
+	public float Y { get; set; }
+
+	public SpriteLayerPoint(float x, float y)
+	{
+		X = x;
+		Y = y;
 	}
 }
