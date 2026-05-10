@@ -39,6 +39,11 @@ public partial class ColorManagement : managerNode
     {
         colors[name] = color;
     }
+    public void updateColor(string name, Color color)
+    {
+        colors[name] = color;
+        colorChanged?.Invoke(this, new ColorChangedEvent(name, color));
+    }
     public string savePickerColor()
     {
         string name = "savedColor" + savedColorNames.Count;
@@ -122,15 +127,9 @@ public partial class ColorManagement : managerNode
     }
     public void openColorPicker(Control owner, string colorName, Vector2 globalPosition)
     {
-        if (activePicker == null || !GodotObject.IsInstanceValid(activePicker))
-        {
-            activePicker = colorPickerScene.Instantiate<ColorPicker>();
-            (owner.GetParent() ?? owner).AddChild(activePicker);
-        }
-
-        activePicker.GlobalPosition = globalPosition;
+        activePicker = colorPickerScene.Instantiate<ColorPicker>();
+        mAccess.windowManager.openWindowAt("Color Picker", activePicker, globalPosition, "staticMenu", false);
         activePicker.openForColor(colorName);
-        activePicker.CallDeferred(ColorPicker.MethodName.KeepOnScreen);
     }
     public void commitPickerColorToRecent()
     {

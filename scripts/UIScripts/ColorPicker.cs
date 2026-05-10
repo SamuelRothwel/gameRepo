@@ -15,7 +15,13 @@ public partial class ColorPicker : Control
     bool pickingWheel;
     bool syncingControls;
     bool ignoreOutsideClick;
+    bool open;
     readonly Vector2 pickerSize = new Vector2(160, 160);
+
+    public ColorPicker()
+    {
+        CustomMinimumSize = new Vector2(180, 360);
+    }
 
     public override void _Ready()
     {
@@ -79,6 +85,11 @@ public partial class ColorPicker : Control
     {
         if (mAccess.colorManager != null)
         {
+            if (open)
+            {
+                mAccess.colorManager.commitPickerColorToRecent();
+                open = false;
+            }
             mAccess.colorManager.colorChanged -= onColorChanged;
             mAccess.colorManager.colorLibraryChanged -= onColorLibraryChanged;
         }
@@ -325,6 +336,7 @@ public partial class ColorPicker : Control
         updateSavedColorsPanelPosition();
         keepSavedColorsPanelOnScreen();
         Visible = true;
+        open = true;
         ignoreOutsideClick = true;
         KeepOnScreen();
     }
@@ -361,11 +373,12 @@ public partial class ColorPicker : Control
     void closePicker()
     {
         mAccess.colorManager.commitPickerColorToRecent();
+        open = false;
         rebuildRecentColorMenu();
         if (savedColorsPanel != null)
         {
             savedColorsPanel.Visible = false;
         }
-        Visible = false;
+        mAccess.windowManager.closeWindow("Color Picker", false);
     }
 }
