@@ -1,4 +1,4 @@
-[gd_scene load_steps=27 format=3 uid="uid://nou2fkswxvvc"]
+[gd_scene load_steps=28 format=3 uid="uid://nou2fkswxvvc"]
 
 [ext_resource type="Script" path="res://scripts/managerScripts/LogicManagement.cs" id="1_0nxiu"]
 [ext_resource type="Script" path="res://scripts/managerScripts/EntityManagement.cs" id="1_j3fb0"]
@@ -26,6 +26,7 @@
 [ext_resource type="Script" path="res://scripts/managerScripts/FileManagement.cs" id="24_r006g"]
 [ext_resource type="Script" path="res://scripts/managerScripts/EntityFrameworkManagement.cs" id="25_qkqil"]
 [ext_resource type="Script" path="res://scripts/managerScripts/WindowManagement.cs" id="26_2r0pr"]
+[ext_resource type="Script" path="res://scripts/managerScripts/StyleManagement.cs" id="27_mh0ng"]
 
 [node name="managers" type="Node"]
 
@@ -80,6 +81,9 @@ script = ExtResource("11_is8of")
 
 [node name="ColorManager" type="Node" parent="." groups=["admin"]]
 script = ExtResource("23_yrje6")
+
+[node name="StyleManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("27_mh0ng")
 
 [node name="SpriteManager" type="Node" parent="." groups=["admin"]]
 script = ExtResource("16_gl3df")

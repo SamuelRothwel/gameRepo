@@ -157,8 +157,13 @@ public partial class SpriteCreatorSidebar : VBoxContainer
         rowButton.CustomMinimumSize = new Vector2(130, 58);
         rowButton.Pressed += () =>
         {
-            mAccess.spriteCreatorManager.LoadStoredSprite(storedSprite);
-            mAccess.windowManager.closeWindow("Saved Sprites");
+            mAccess.spriteCreatorManager.LoadStoredSprite(storedSprite, loaded =>
+            {
+                if (loaded)
+                {
+                    mAccess.windowManager.closeWindow("Saved Sprites", false);
+                }
+            });
         };
 
         HBoxContainer row = new HBoxContainer();

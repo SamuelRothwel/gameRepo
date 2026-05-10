@@ -10,7 +10,7 @@ namespace coolbeats.scripts.staticScriptsAndDataStructures
         public static uint encode(uint x, uint y)
         {
             uint result = 0;
-            for (int i = 0; i < 32; i++)
+            for (int i = 0; i < 16; i++)
             {
                 if (((x >> i) & 1) == 1)
                 {

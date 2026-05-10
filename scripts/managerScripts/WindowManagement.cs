@@ -6,24 +6,15 @@ public partial class WindowManagement : managerNode
 {
 	public Dictionary<string, Window> windows;
 	public Dictionary<string, WindowPreset> presets;
+	public Dictionary<string, bool> windowCloseChecks;
 
 	public override void setup()
 	{
 		windows = new Dictionary<string, Window>();
 		presets = new Dictionary<string, WindowPreset>();
-		addPreset("closeButtonTransparentTopbar", new WindowPreset
-		{
-			hasTopbar = true,
-			hasCloseButton = true,
-			resizeToContents = true,
-			padding = new Vector2I(12, 12),
-			topbarHeight = 34,
-			cornerRadius = 10,
-			backgroundColor = new Color(0.18f, 0.19f, 0.21f, 1f),
-			borderColor = new Color(0.72f, 0.75f, 0.8f, 0.28f),
-			shadowColor = new Color(0f, 0f, 0f, 0f),
-			shadowSize = 0
-		});
+		windowCloseChecks = new Dictionary<string, bool>();
+		addPreset("closeButtonTransparentTopbar", mAccess.styleManager.getWindowPreset("closeButtonTransparentTopbar"));
+		addPreset("transparentTopbarNoClose", mAccess.styleManager.getWindowPreset("transparentTopbarNoClose"));
 	}
 
 	public void addPreset(string name, WindowPreset preset)
@@ -31,11 +22,11 @@ public partial class WindowManagement : managerNode
 		presets[name] = preset;
 	}
 
-	public Window openWindow(string name, Control content, string presetName = "closeButtonTransparentTopbar")
+	public Window openWindow(string name, Control content, string presetName = "closeButtonTransparentTopbar", bool checkUnsavedOnClose = true)
 	{
 		if (windows.ContainsKey(name) && GodotObject.IsInstanceValid(windows[name]))
 		{
-			windows[name].QueueFree();
+			closeWindow(name, false);
 		}
 
 		WindowPreset preset = presets[presetName];
@@ -50,6 +41,7 @@ public partial class WindowManagement : managerNode
 		window.AddChild(windowRoot);
 		AddChild(window);
 		windows[name] = window;
+		windowCloseChecks[name] = checkUnsavedOnClose;
 
 		if (preset.resizeToContents)
 		{
@@ -178,7 +170,35 @@ public partial class WindowManagement : managerNode
 		);
 	}
 
-	public void closeWindow(string name)
+	public void closeWindow(string name, bool checkUnsaved = true)
+	{
+		if (!windows.ContainsKey(name))
+		{
+			return;
+		}
+
+		bool windowChecksUnsaved = true;
+		if (windowCloseChecks.ContainsKey(name))
+		{
+			windowChecksUnsaved = windowCloseChecks[name];
+		}
+
+		if (checkUnsaved && windowChecksUnsaved && mAccess.entityFrameworkManager != null)
+		{
+			mAccess.entityFrameworkManager.CheckUnsavedObjects(canClose =>
+			{
+				if (canClose)
+				{
+					closeWindowImmediately(name);
+				}
+			});
+			return;
+		}
+
+		closeWindowImmediately(name);
+	}
+
+	void closeWindowImmediately(string name)
 	{
 		if (!windows.ContainsKey(name))
 		{
@@ -191,6 +211,7 @@ public partial class WindowManagement : managerNode
 		}
 
 		windows.Remove(name);
+		windowCloseChecks.Remove(name);
 	}
 }
 

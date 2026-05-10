@@ -51,34 +51,63 @@ public partial class sceneManagment : managerNode
 
 	public void startGame()
 	{
-		GetTree().ChangeSceneToPacked(gameScene);
-		gameStates.Switch("inGame");
-		//mAccess.unitManager.createUnit("marine", 0);
-		mAccess.unitManager.createUnit("marine", 0);
-		//mAccess.unitManager.createUnit("barracks", 0);
-		mAccess.unitManager.createUnit("marine", 1);
-		mAccess.uiManager.changeUI("game");
-		mAccess.entityManager.spawnEntity("playerCamera");
-        mAccess.teamManager.UpdateTeamVisions();
+		changeSceneAfterUnsavedCheck(() =>
+		{
+			GetTree().ChangeSceneToPacked(gameScene);
+			gameStates.Switch("inGame");
+			//mAccess.unitManager.createUnit("marine", 0);
+			mAccess.unitManager.createUnit("marine", 0);
+			//mAccess.unitManager.createUnit("barracks", 0);
+			mAccess.unitManager.createUnit("marine", 1);
+			mAccess.uiManager.changeUI("game");
+			mAccess.entityManager.spawnEntity("playerCamera");
+        	mAccess.teamManager.UpdateTeamVisions();
+		});
 	}
 	public void startMenu()
 	{
-		GetTree().ChangeSceneToPacked(menuScene);
-		gameStates.Switch("menu");
-		mAccess.uiManager.changeUI("main");
+		changeSceneAfterUnsavedCheck(() =>
+		{
+			GetTree().ChangeSceneToPacked(menuScene);
+			gameStates.Switch("menu");
+			mAccess.uiManager.changeUI("main");
+		});
 	}
 	public void spriteCreator()
 	{
-		GetTree().ChangeSceneToPacked(menuScene);
-		gameStates.Switch("spriteCreator");
-		mAccess.uiManager.changeUI("spriteCreator");
-		mAccess.entityManager.spawnEntity("playerCamera");
+		changeSceneAfterUnsavedCheck(() =>
+		{
+			GetTree().ChangeSceneToPacked(menuScene);
+			gameStates.Switch("spriteCreator");
+			mAccess.uiManager.changeUI("spriteCreator");
+			mAccess.entityManager.spawnEntity("playerCamera");
+		});
 	}
 	public void unitCreator()
 	{
-		GetTree().ChangeSceneToPacked(menuScene);
-		gameStates.Switch("unitCreator");
-		mAccess.uiManager.changeUI("unitCreator");
+		changeSceneAfterUnsavedCheck(() =>
+		{
+			GetTree().ChangeSceneToPacked(menuScene);
+			gameStates.Switch("unitCreator");
+			mAccess.uiManager.changeUI("unitCreator");
+		});
+	}
+
+	void changeSceneAfterUnsavedCheck(Action changeScene)
+	{
+		if (mAccess.entityFrameworkManager == null)
+		{
+			changeScene();
+			return;
+		}
+
+		mAccess.entityFrameworkManager.CheckUnsavedObjects(canChange =>
+		{
+			if (canChange)
+			{
+				changeScene();
+			}
+		});
 	}
 
 	private void TerminateNode(Node node)

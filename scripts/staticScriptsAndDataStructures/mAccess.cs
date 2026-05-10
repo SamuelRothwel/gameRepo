@@ -20,6 +20,7 @@ public static class mAccess
 	public static RecycleManagement recycleManager;
 	public static SpriteCreatorManagement spriteCreatorManager;
 	public static ColorManagement colorManager;
+	public static StyleManagement styleManager;
 	public static FileManagement fileManager;
 	public static EntityFrameworkManagement entityFrameworkManager;
 	public static WindowManagement windowManager;
@@ -78,6 +79,9 @@ public static class mAccess
 				case "ColorManager":
 					colorManager = manager as ColorManagement;
 					break;
+				case "StyleManager":
+					styleManager = manager as StyleManagement;
+					break;
 				case "FileManager":
 					fileManager = manager as FileManagement;
 					break;
@@ -103,9 +107,10 @@ public static class mAccess
 		recycleManager.setup();
 		fileManager.setup();
 		entityFrameworkManager.setup();
-		windowManager.setup();
 		uiManager.setup();
 		colorManager.setup();
+		styleManager.setup();
+		windowManager.setup();
 		spriteCreatorManager.setup();
 		gameManager.setup();
 		unitManager.setup();

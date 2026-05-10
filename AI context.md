@@ -13,3 +13,10 @@ sceneManagment tracks all nodes added to the tree, applies layers, runs creation
 sceneManagment.gameStates is a FallbackDictionary whose default is menu, so non-menu states only list true/overridden flags; omitted flags fall back to menu's false values.
 UnitManagement, TeamManagement, and InputManagement form the RTS-style unit selection and command system.
 SpriteManagement, AnimationManagement, DamageManagement, LifetimeManagement, RecycleManagement, UIManagement, and SpriteCreatorManagement provide supporting systems.
+
+Testing practice:
+All project code that should be unit tested lives under scripts/.
+Unit tests should be written with xUnit.
+Tests should live in a test folder inside the same directory as the code they test, so each scripts subdirectory keeps its own nearby tests.
+Tests must be run separately from the Godot game/runtime flow and must not change runtime behavior or project functionality.
+When adding or changing testable code, identify and prompt for relevant edge cases so they can be covered explicitly.

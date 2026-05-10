@@ -19,6 +19,11 @@ public partial class SpriteCreatorManagement : managerNode
 	string activeLayer;
 	public Dictionary<Godot.Key, string> keyBinds;
 	public string activeFunction;
+	public Guid currentSpriteId;
+	public string currentSpriteName;
+	public int currentSpriteVersion;
+	public int savedSpriteVersion;
+	bool loadingSprite;
 	public override void setup()
 	{
 		activeSpriteLayers = new Dictionary<string, (Sprite2D, List<Vector2>)>();
@@ -27,6 +32,10 @@ public partial class SpriteCreatorManagement : managerNode
 		activeSpriteLayerOrder = new List<string>();
 		keyBinds = new Dictionary<Key, string>();
 		activeFunction = "draw";
+		currentSpriteId = Guid.Empty;
+		currentSpriteName = "";
+		currentSpriteVersion = 0;
+		savedSpriteVersion = 0;
 		mAccess.colorManager.colorChanged += OnColorChanged;
 	}
 	public void AddSpriteLayer(string name = "", int scale = 10)
@@ -47,6 +56,7 @@ public partial class SpriteCreatorManagement : managerNode
 		SetActiveSpriteLayer(name);
 		spriteScale = scale;
 		activeSprite.Centered = false;
+		MarkSpriteChanged();
 	}
 	public void SetActiveSpriteLayer(string name)
 	{
@@ -90,11 +100,33 @@ public partial class SpriteCreatorManagement : managerNode
 		activeSpriteLayerOrder.RemoveAt(oldOrder);
 		activeSpriteLayerOrder.Insert(order, name);
 		UpdateSpriteLayerZIndexes();
+		MarkSpriteChanged();
 	}
-	public void LoadStoredSprite(StoredSprite storedSprite)
+	public void LoadStoredSprite(StoredSprite storedSprite, Action<bool> onComplete = null, bool checkUnsaved = true)
 	{
+		if (checkUnsaved && currentSpriteId != Guid.Empty && currentSpriteId != storedSprite.Id)
+		{
+			mAccess.entityFrameworkManager.CheckUnsavedObjects(canProceed =>
+			{
+				if (canProceed)
+				{
+					LoadStoredSprite(storedSprite, onComplete, false);
+				}
+				else
+				{
+					onComplete?.Invoke(false);
+				}
+			});
+			return;
+		}
+
+		loadingSprite = true;
 		ClearSpriteLayers();
 		spriteScale = spriteScale == 0 ? 10 : spriteScale;
+		currentSpriteId = storedSprite.Id;
+		currentSpriteName = storedSprite.Name;
+		currentSpriteVersion = storedSprite.Version;
+		savedSpriteVersion = storedSprite.Version;
 
 		foreach (StoredSpriteLayer layer in storedSprite.Layers.OrderBy(layer => layer.Order))
 		{
@@ -106,6 +138,10 @@ public partial class SpriteCreatorManagement : managerNode
 		{
 			SetActiveSpriteLayer(activeSpriteLayerOrder[0]);
 		}
+
+		RegisterCurrentSprite();
+		loadingSprite = false;
+		onComplete?.Invoke(true);
 	}
 	void ClearSpriteLayers()
 	{
@@ -143,13 +179,59 @@ public partial class SpriteCreatorManagement : managerNode
 		activeSpriteLayerOrder.Add(layerName);
 		RedrawSpriteLayer(layerName, false);
 	}
-	public Guid SaveSprite(string spriteName = "")
+	void EnsureCurrentSpriteRegistration()
 	{
-		if (spriteName == "")
+		if (currentSpriteId == Guid.Empty)
 		{
-			spriteName = "Sprite " + DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss");
+			currentSpriteId = Guid.NewGuid();
+			currentSpriteName = "Sprite " + DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss");
+			currentSpriteVersion = 0;
+			savedSpriteVersion = 0;
 		}
 
+		RegisterCurrentSprite();
+	}
+	void RegisterCurrentSprite()
+	{
+		if (currentSpriteId == Guid.Empty)
+		{
+			return;
+		}
+
+		mAccess.entityFrameworkManager.RegisterUnsavedObject
+		(
+			currentSpriteId,
+			currentSpriteName,
+			savedSpriteVersion,
+			() => currentSpriteVersion,
+			() => SaveCurrentSprite(),
+			() => mAccess.entityFrameworkManager.UnregisterUnsavedObject(currentSpriteId)
+		);
+	}
+	void MarkSpriteChanged()
+	{
+		if (loadingSprite)
+		{
+			return;
+		}
+
+		EnsureCurrentSpriteRegistration();
+		currentSpriteVersion++;
+		RegisterCurrentSprite();
+	}
+	public Guid SaveSprite(string spriteName = "")
+	{
+		EnsureCurrentSpriteRegistration();
+		if (spriteName != "")
+		{
+			currentSpriteName = spriteName;
+		}
+
+		SaveCurrentSprite();
+		return currentSpriteId;
+	}
+	int SaveCurrentSprite()
+	{
 		List<StoredSpriteLayer> layers = activeSpriteLayerOrder
 			.Select((name, order) => new StoredSpriteLayer
 			{
@@ -160,7 +242,11 @@ public partial class SpriteCreatorManagement : managerNode
 			})
 			.ToList();
 
-		return mAccess.entityFrameworkManager.SaveSprite(spriteName, layers);
+		int savedVersion = mAccess.entityFrameworkManager.SaveSprite(currentSpriteId, currentSpriteName, currentSpriteVersion, layers);
+		savedSpriteVersion = savedVersion;
+		currentSpriteVersion = savedVersion;
+		RegisterCurrentSprite();
+		return savedVersion;
 	}
 	public Texture2D CreateStoredSpritePreview(StoredSprite storedSprite)
 	{
@@ -299,6 +385,7 @@ public partial class SpriteCreatorManagement : managerNode
 		{
 			activeSpriteLayerColors[activeLayer] = e.color;
 			RedrawSpriteLayer(activeLayer, true);
+			MarkSpriteChanged();
 		}
 	}
 	public void hover(Vector2 coord)
@@ -352,6 +439,7 @@ public partial class SpriteCreatorManagement : managerNode
 				}
 				activeSpriteLayers[activeLayer].Item2.Add(dif);
 				RedrawSpriteLayer(activeLayer, true);
+				MarkSpriteChanged();
 				break;
 		}
 	}
