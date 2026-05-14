@@ -47,7 +47,7 @@ public partial class StyleManagement : managerNode
 
 		addColor("styleWindowBackground", new Color(0.18f, 0.19f, 0.21f, 1f));
 		addColor("styleWindowBorder", new Color(0.72f, 0.75f, 0.8f, 0.28f));
-		addColor("styleWindowShadow", new Color(0f, 1f, 0f, 0f));
+		addColor("styleWindowShadow", new Color(0f, 0f, 0f));
 
 		addColor("styleTextPrimary", new Color(0.93f, 0.94f, 0.95f, 1f));
 		addColor("styleTextMuted", new Color(0.63f, 0.66f, 0.7f, 1f));
@@ -130,7 +130,7 @@ public partial class StyleManagement : managerNode
 			backgroundColor = color("styleWindowBackground"),
 			borderColor = color("styleWindowBorder"),
 			shadowColor = color("styleWindowShadow"),
-			shadowSize = 12
+			shadowSize = 8
 		};
 		addWindowPreset("staticMenu", staticMenu);
 		addWindowPreset("closeButtonTransparentTopbar", staticMenu);
@@ -149,7 +149,7 @@ public partial class StyleManagement : managerNode
 			backgroundColor = color("styleWindowBackground"),
 			borderColor = color("styleWindowBorder"),
 			shadowColor = color("styleWindowShadow"),
-			shadowSize = 12
+			shadowSize = 8
 		});
 
 		addWindowPreset("transparentTopbarNoClose", new WindowPreset
@@ -165,7 +165,7 @@ public partial class StyleManagement : managerNode
 			backgroundColor = color("styleWindowBackground"),
 			borderColor = color("styleWindowBorder"),
 			shadowColor = color("styleWindowShadow"),
-			shadowSize = 12
+			shadowSize = 8
 		});
 	}
 

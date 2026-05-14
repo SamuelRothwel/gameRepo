@@ -4,15 +4,20 @@ using System.Collections.Generic;
 
 public partial class WindowManagement : managerNode
 {
-	public Dictionary<string, Window> windows;
+	public Dictionary<string, ManagedViewportWindow> windows;
 	public Dictionary<string, WindowPreset> presets;
 	public Dictionary<string, bool> windowCloseChecks;
+	CanvasLayer windowLayer;
 
 	public override void setup()
 	{
-		windows = new Dictionary<string, Window>();
+		windows = new Dictionary<string, ManagedViewportWindow>();
 		presets = new Dictionary<string, WindowPreset>();
 		windowCloseChecks = new Dictionary<string, bool>();
+		windowLayer = new CanvasLayer();
+		windowLayer.Name = "ManagedViewportWindows";
+		windowLayer.Layer = 100;
+		AddChild(windowLayer);
 		mAccess.styleManager.styleChanged += onStyleChanged;
 		refreshStylePresets();
 	}
@@ -36,19 +41,17 @@ public partial class WindowManagement : managerNode
 		presets[name] = preset;
 	}
 
-	public Window openWindow(string name, Control content, string presetName = "closeButtonTransparentTopbar", bool checkUnsavedOnClose = true)
+	public Control openWindow(string name, Control content, string presetName = "closeButtonTransparentTopbar", bool checkUnsavedOnClose = true)
 	{
-		return openWindow(name, content, presetName, checkUnsavedOnClose, false, Vector2I.Zero);
+		return openWindow(name, content, presetName, checkUnsavedOnClose, false, Vector2.Zero);
 	}
 
-	public Window openWindowAt(string name, Control content, Vector2 globalPosition, string presetName = "closeButtonTransparentTopbar", bool checkUnsavedOnClose = true)
+	public Control openWindowAt(string name, Control content, Vector2 globalPosition, string presetName = "closeButtonTransparentTopbar", bool checkUnsavedOnClose = true)
 	{
-		Vector2I rootWindowPosition = DisplayServer.WindowGetPosition();
-		Vector2I screenPosition = rootWindowPosition + new Vector2I(Mathf.RoundToInt(globalPosition.X), Mathf.RoundToInt(globalPosition.Y));
-		return openWindow(name, content, presetName, checkUnsavedOnClose, true, screenPosition);
+		return openWindow(name, content, presetName, checkUnsavedOnClose, true, globalPosition);
 	}
 
-	Window openWindow(string name, Control content, string presetName, bool checkUnsavedOnClose, bool usePosition, Vector2I position)
+	Control openWindow(string name, Control content, string presetName, bool checkUnsavedOnClose, bool usePosition, Vector2 position)
 	{
 		if (windows.ContainsKey(name) && GodotObject.IsInstanceValid(windows[name]))
 		{
@@ -56,46 +59,42 @@ public partial class WindowManagement : managerNode
 		}
 
 		WindowPreset preset = presets[presetName];
-		Window window = new Window();
-		window.Name = name;
-		window.Title = name;
-		window.Borderless = true;
-		window.Transparent = true;
-		window.TransparentBg = true;
-		window.Unresizable = !preset.resizable;
-		window.CloseRequested += () => closeWindow(name);
-
-		Control windowRoot = createWindowRoot(window, content, preset);
-		window.AddChild(windowRoot);
-		AddChild(window);
+		ManagedViewportWindow window = createWindowRoot(name, content, preset);
+		windowLayer.AddChild(window);
 		windows[name] = window;
 		windowCloseChecks[name] = checkUnsavedOnClose;
 
-		window.MinSize = getWindowMinimumSize(windowRoot, preset);
-		window.Size = getInitialWindowSize(windowRoot, preset);
+		window.minimumSize = getWindowMinimumSize(window, preset);
+		window.CustomMinimumSize = window.minimumSize;
+		window.Size = getInitialWindowSize(window, preset);
 
 		if (preset.resizeToContents)
 		{
-			resizeWindowToContents(window, windowRoot);
+			resizeWindowToContents(window);
 		}
 
 		if (usePosition)
 		{
-			window.Popup();
 			window.Position = clampWindowPosition(position, window.Size);
 		}
 		else
 		{
-			window.PopupCentered();
+			window.Position = getCenteredWindowPosition(window.Size);
 		}
+
+		window.MoveToFront();
 		return window;
 	}
 
-	Control createWindowRoot(Window window, Control content, WindowPreset preset)
+	ManagedViewportWindow createWindowRoot(string name, Control content, WindowPreset preset)
 	{
-		Control root = new Control();
+		ManagedViewportWindow root = new ManagedViewportWindow();
+		root.Name = name;
+		root.preset = preset;
 		root.CustomMinimumSize = getRootMinimumSize(content, preset);
-		root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		root.MouseFilter = Control.MouseFilterEnum.Stop;
+		root.ClipContents = false;
+		root.ZIndex = windows.Count;
 
 		if (preset.shadowSize > 0 && preset.shadowColor.A > 0f)
 		{
@@ -119,7 +118,7 @@ public partial class WindowManagement : managerNode
 
 		if (preset.hasTopbar)
 		{
-			Control topbar = createTopbar(window, preset);
+			Control topbar = createTopbar(root, preset);
 			topbar.AnchorLeft = 0f;
 			topbar.AnchorRight = 1f;
 			topbar.OffsetLeft = preset.shadowSize;
@@ -142,13 +141,13 @@ public partial class WindowManagement : managerNode
 			closeButton.OffsetTop = preset.shadowSize + 6f;
 			closeButton.OffsetBottom = preset.shadowSize + 34f;
 			closeButton.ZIndex = 2;
-			closeButton.Pressed += () => closeWindow(window.Name.ToString());
+			closeButton.Pressed += () => closeWindow(root.Name.ToString());
 			root.AddChild(closeButton);
 		}
 
 		if (preset.resizable)
 		{
-			root.AddChild(createResizeEdges(window));
+			root.AddChild(createResizeEdges(root));
 		}
 
 		return root;
@@ -223,26 +222,28 @@ public partial class WindowManagement : managerNode
 		control.OffsetBottom -= inset;
 	}
 
-	Control createTopbar(Window window, WindowPreset preset)
+	Control createTopbar(ManagedViewportWindow window, WindowPreset preset)
 	{
 		Control topbar = new Control();
 		topbar.CustomMinimumSize = new Vector2(0, preset.topbarHeight);
 		topbar.MouseFilter = Control.MouseFilterEnum.Stop;
 
 		bool dragging = false;
-		Vector2I dragStartMouse = Vector2I.Zero;
-		Vector2I dragStartWindow = Vector2I.Zero;
+		Vector2 dragStartMouse = Vector2.Zero;
+		Vector2 dragStartWindow = Vector2.Zero;
 		topbar.GuiInput += inputEvent =>
 		{
 			if (inputEvent is InputEventMouseButton mouseButton && mouseButton.ButtonIndex == MouseButton.Left)
 			{
 				dragging = mouseButton.Pressed;
-				dragStartMouse = DisplayServer.MouseGetPosition();
+				dragStartMouse = GetViewport().GetMousePosition();
 				dragStartWindow = window.Position;
+				window.MoveToFront();
+				topbar.AcceptEvent();
 			}
 			else if (inputEvent is InputEventMouseMotion && dragging)
 			{
-				window.Position = dragStartWindow + DisplayServer.MouseGetPosition() - dragStartMouse;
+				window.Position = clampWindowPosition(dragStartWindow + GetViewport().GetMousePosition() - dragStartMouse, window.Size);
 			}
 		};
 
@@ -269,13 +270,13 @@ public partial class WindowManagement : managerNode
 		);
 	}
 
-	void resizeWindowToContents(Window window, Control content)
+	void resizeWindowToContents(ManagedViewportWindow window)
 	{
-		Vector2 minimumSize = content.GetCombinedMinimumSize();
-		window.Size = new Vector2I
+		Vector2 minimumSize = window.GetCombinedMinimumSize();
+		window.Size = new Vector2
 		(
-			Mathf.Max(window.MinSize.X, Mathf.CeilToInt(minimumSize.X)),
-			Mathf.Max(window.MinSize.Y, Mathf.CeilToInt(minimumSize.Y))
+			Mathf.Max(window.minimumSize.X, Mathf.CeilToInt(minimumSize.X)),
+			Mathf.Max(window.minimumSize.Y, Mathf.CeilToInt(minimumSize.Y))
 		);
 	}
 
@@ -294,12 +295,12 @@ public partial class WindowManagement : managerNode
 		);
 	}
 
-	Vector2I getInitialWindowSize(Control windowRoot, WindowPreset preset)
+	Vector2 getInitialWindowSize(Control windowRoot, WindowPreset preset)
 	{
 		Vector2I minimumSize = getWindowMinimumSize(windowRoot, preset);
 		if (preset.initialSize != Vector2I.Zero)
 		{
-			return new Vector2I
+			return new Vector2
 			(
 				Mathf.Max(minimumSize.X, preset.initialSize.X),
 				Mathf.Max(minimumSize.Y, preset.initialSize.Y)
@@ -309,7 +310,7 @@ public partial class WindowManagement : managerNode
 		return minimumSize;
 	}
 
-	Control createResizeEdges(Window window)
+	Control createResizeEdges(ManagedViewportWindow window)
 	{
 		Control edges = new Control();
 		edges.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -324,7 +325,7 @@ public partial class WindowManagement : managerNode
 		return edges;
 	}
 
-	Control createResizeEdge(Window window, ResizeEdge edge)
+	Control createResizeEdge(ManagedViewportWindow window, ResizeEdge edge)
 	{
 		Control handle = new Control();
 		float thickness = 8f;
@@ -368,22 +369,23 @@ public partial class WindowManagement : managerNode
 		}
 
 		bool resizing = false;
-		Vector2I resizeStartMouse = Vector2I.Zero;
-		Vector2I resizeStartSize = Vector2I.Zero;
-		Vector2I resizeStartPosition = Vector2I.Zero;
+		Vector2 resizeStartMouse = Vector2.Zero;
+		Vector2 resizeStartSize = Vector2.Zero;
+		Vector2 resizeStartPosition = Vector2.Zero;
 		handle.GuiInput += inputEvent =>
 		{
 			if (inputEvent is InputEventMouseButton mouseButton && mouseButton.ButtonIndex == MouseButton.Left)
 			{
 				resizing = mouseButton.Pressed;
-				resizeStartMouse = DisplayServer.MouseGetPosition();
+				resizeStartMouse = GetViewport().GetMousePosition();
 				resizeStartSize = window.Size;
 				resizeStartPosition = window.Position;
+				window.MoveToFront();
 				handle.AcceptEvent();
 			}
 			else if (inputEvent is InputEventMouseMotion && resizing)
 			{
-				Vector2I delta = DisplayServer.MouseGetPosition() - resizeStartMouse;
+				Vector2 delta = GetViewport().GetMousePosition() - resizeStartMouse;
 				resizeWindowFromEdge(window, edge, resizeStartPosition, resizeStartSize, delta);
 				handle.AcceptEvent();
 			}
@@ -392,40 +394,52 @@ public partial class WindowManagement : managerNode
 		return handle;
 	}
 
-	void resizeWindowFromEdge(Window window, ResizeEdge edge, Vector2I startPosition, Vector2I startSize, Vector2I delta)
+	void resizeWindowFromEdge(ManagedViewportWindow window, ResizeEdge edge, Vector2 startPosition, Vector2 startSize, Vector2 delta)
 	{
 		if (edge == ResizeEdge.Right)
 		{
-			window.Size = new Vector2I(Mathf.Max(window.MinSize.X, startSize.X + delta.X), startSize.Y);
+			window.Size = new Vector2(Mathf.Max(window.minimumSize.X, startSize.X + delta.X), startSize.Y);
 		}
 		else if (edge == ResizeEdge.Bottom)
 		{
-			window.Size = new Vector2I(startSize.X, Mathf.Max(window.MinSize.Y, startSize.Y + delta.Y));
+			window.Size = new Vector2(startSize.X, Mathf.Max(window.minimumSize.Y, startSize.Y + delta.Y));
 		}
 		else if (edge == ResizeEdge.Left)
 		{
-			int newWidth = Mathf.Max(window.MinSize.X, startSize.X - delta.X);
-			int widthDelta = startSize.X - newWidth;
-			window.Position = new Vector2I(startPosition.X + widthDelta, startPosition.Y);
-			window.Size = new Vector2I(newWidth, startSize.Y);
+			float newWidth = Mathf.Max(window.minimumSize.X, startSize.X - delta.X);
+			float widthDelta = startSize.X - newWidth;
+			window.Position = new Vector2(startPosition.X + widthDelta, startPosition.Y);
+			window.Size = new Vector2(newWidth, startSize.Y);
 		}
 		else if (edge == ResizeEdge.Top)
 		{
-			int newHeight = Mathf.Max(window.MinSize.Y, startSize.Y - delta.Y);
-			int heightDelta = startSize.Y - newHeight;
-			window.Position = new Vector2I(startPosition.X, startPosition.Y + heightDelta);
-			window.Size = new Vector2I(startSize.X, newHeight);
+			float newHeight = Mathf.Max(window.minimumSize.Y, startSize.Y - delta.Y);
+			float heightDelta = startSize.Y - newHeight;
+			window.Position = new Vector2(startPosition.X, startPosition.Y + heightDelta);
+			window.Size = new Vector2(startSize.X, newHeight);
 		}
+
+		window.Position = clampWindowPosition(window.Position, window.Size);
 	}
 
-	Vector2I clampWindowPosition(Vector2I position, Vector2I size)
+	Vector2 getCenteredWindowPosition(Vector2 size)
 	{
-		Vector2I displaySize = DisplayServer.WindowGetSize();
-		Vector2I margin = new Vector2I(8, 8);
-		int maxX = Mathf.Max(margin.X, displaySize.X - size.X - margin.X);
-		int maxY = Mathf.Max(margin.Y, displaySize.Y - size.Y - margin.Y);
+		Vector2 viewportSize = GetViewport().GetVisibleRect().Size;
+		return new Vector2
+		(
+			Mathf.Max(8f, (viewportSize.X - size.X) * 0.5f),
+			Mathf.Max(8f, (viewportSize.Y - size.Y) * 0.5f)
+		);
+	}
 
-		return new Vector2I
+	Vector2 clampWindowPosition(Vector2 position, Vector2 size)
+	{
+		Vector2 viewportSize = GetViewport().GetVisibleRect().Size;
+		Vector2 margin = new Vector2(8, 8);
+		float maxX = Mathf.Max(margin.X, viewportSize.X - size.X - margin.X);
+		float maxY = Mathf.Max(margin.Y, viewportSize.Y - size.Y - margin.Y);
+
+		return new Vector2
 		(
 			Mathf.Clamp(position.X, margin.X, maxX),
 			Mathf.Clamp(position.Y, margin.Y, maxY)
@@ -475,6 +489,12 @@ public partial class WindowManagement : managerNode
 		windows.Remove(name);
 		windowCloseChecks.Remove(name);
 	}
+}
+
+public partial class ManagedViewportWindow : Control
+{
+	public Vector2I minimumSize = Vector2I.Zero;
+	public WindowPreset preset;
 }
 
 public class WindowPreset
