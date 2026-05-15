@@ -19,6 +19,7 @@ public partial class UnitCreatorPanel : Control
 	TextureRect dragGhost;
 	string selectedComponentPath;
 	Vector2 dragOffset;
+	Vector2 draggedParentOrigin;
 	Vector2 libraryDragStart;
 	readonly Dictionary<string, bool> expandedComponents = new();
 
@@ -370,11 +371,11 @@ public partial class UnitCreatorPanel : Control
 			Vector2 centeredPosition = localPosition - previewLayer.Size / 2f - dragOffset;
 			if (draggedSprite != null)
 			{
-				mAccess.unitCreatorManager.MoveSpriteAttachment(draggedSprite, centeredPosition);
+				mAccess.unitCreatorManager.MoveSpriteAttachment(draggedSprite, centeredPosition - draggedParentOrigin);
 			}
 			else
 			{
-				mAccess.unitCreatorManager.MoveSubUnitAttachment(draggedSubUnit, centeredPosition);
+				mAccess.unitCreatorManager.MoveSubUnitAttachment(draggedSubUnit, centeredPosition - draggedParentOrigin);
 			}
 			AcceptEvent();
 		}
@@ -618,33 +619,78 @@ public partial class UnitCreatorPanel : Control
 		}
 
 		Vector2 centeredPosition = localPosition - previewLayer.Size / 2f;
-		foreach (UnitSpriteAttachmentData sprite in mAccess.unitCreatorManager.activeUnit.SpriteAttachments
-			.OrderByDescending(sprite => sprite.Order))
+		PreviewHit hit = FindDeepestPreviewHit(mAccess.unitCreatorManager.activeUnit, "unit:" + mAccess.unitCreatorManager.activeUnit.Id, Vector2.Zero, localPosition);
+		if (hit?.Sprite != null)
 		{
-			Rect2 bounds = GetSpritePreviewBounds(sprite);
+			draggedSprite = hit.Sprite;
+			dragOffset = centeredPosition - hit.GlobalPosition;
+			draggedParentOrigin = hit.ParentOrigin;
+			SelectComponent(hit.Path);
+			AcceptEvent();
+			return;
+		}
+		if (hit?.SubUnit != null)
+		{
+			draggedSubUnit = hit.SubUnit;
+			dragOffset = centeredPosition - hit.GlobalPosition;
+			draggedParentOrigin = hit.ParentOrigin;
+			SelectComponent(hit.Path);
+			AcceptEvent();
+			return;
+		}
+	}
+
+	PreviewHit FindDeepestPreviewHit(UnitDefinition definition, string path, Vector2 origin, Vector2 localPosition)
+	{
+		foreach (UnitSubUnitAttachmentData subUnit in definition.SubUnitAttachments.OrderByDescending(subUnit => subUnit.Order))
+		{
+			UnitDefinition childDefinition = mAccess.unitCreatorManager.GetUnitDefinition(subUnit.ChildUnitId);
+			string subUnitPath = path + "/subUnit:" + subUnit.Id;
+			if (childDefinition != null)
+			{
+				PreviewHit childHit = FindDeepestPreviewHit(childDefinition, subUnitPath, origin + subUnit.Position, localPosition);
+				if (childHit != null)
+				{
+					return childHit;
+				}
+			}
+
+			Rect2 bounds = GetSubUnitPreviewBounds(subUnit, origin);
 			if (bounds.HasPoint(localPosition))
 			{
-				draggedSprite = sprite;
-				dragOffset = centeredPosition - sprite.Position;
-				SelectComponent("unit:" + mAccess.unitCreatorManager.activeUnit.Id + "/sprite:" + sprite.Id);
-				AcceptEvent();
-				return;
+				return new PreviewHit
+				{
+					Path = subUnitPath,
+					SubUnit = subUnit,
+					GlobalPosition = origin + subUnit.Position,
+					ParentOrigin = origin
+				};
 			}
 		}
 
-		foreach (UnitSubUnitAttachmentData subUnit in mAccess.unitCreatorManager.activeUnit.SubUnitAttachments
-			.OrderByDescending(subUnit => subUnit.Order))
+		foreach (UnitSpriteAttachmentData sprite in definition.SpriteAttachments.OrderByDescending(sprite => sprite.Order))
 		{
-			Rect2 bounds = GetSubUnitPreviewBounds(subUnit, Vector2.Zero);
+			Texture2D texture = mAccess.unitCreatorManager.CreateAttachmentPreview(sprite);
+			if (texture == null)
+			{
+				continue;
+			}
+
+			Rect2 centeredBounds = GetCenteredSpritePreviewBounds(sprite, texture, origin);
+			Rect2 bounds = new Rect2(centeredBounds.Position + previewLayer.Size / 2f, centeredBounds.Size);
 			if (bounds.HasPoint(localPosition))
 			{
-				draggedSubUnit = subUnit;
-				dragOffset = centeredPosition - subUnit.Position;
-				SelectComponent("unit:" + mAccess.unitCreatorManager.activeUnit.Id + "/subUnit:" + subUnit.Id);
-				AcceptEvent();
-				return;
+				return new PreviewHit
+				{
+					Path = path + "/sprite:" + sprite.Id,
+					Sprite = sprite,
+					GlobalPosition = origin + sprite.Position,
+					ParentOrigin = origin
+				};
 			}
 		}
+
+		return null;
 	}
 
 	PanelContainer CreatePanel(Vector2 minimumSize)
@@ -946,5 +992,14 @@ public partial class UnitCreatorPanel : Control
 		button.AddThemeStyleboxOverride("normal", normal);
 		button.AddThemeStyleboxOverride("hover", normal);
 		button.AddThemeStyleboxOverride("pressed", normal);
+	}
+
+	class PreviewHit
+	{
+		public string Path;
+		public UnitSpriteAttachmentData Sprite;
+		public UnitSubUnitAttachmentData SubUnit;
+		public Vector2 GlobalPosition;
+		public Vector2 ParentOrigin;
 	}
 }
