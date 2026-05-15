@@ -24,6 +24,25 @@ public class StoredSpriteLayer
 	public string CoordinatesJson { get; set; } = "";
 }
 
+public class StoredAnimation
+{
+	public Guid Id { get; set; }
+	public string Name { get; set; } = "";
+	public string AnimationType { get; set; } = "";
+	public float Duration { get; set; }
+	public List<StoredAnimationParameter> Parameters { get; set; } = new();
+}
+
+public class StoredAnimationParameter
+{
+	public Guid Id { get; set; }
+	public Guid StoredAnimationId { get; set; }
+	public StoredAnimation StoredAnimation { get; set; }
+	public string Key { get; set; } = "";
+	public string ValueType { get; set; } = "";
+	public string ValueJson { get; set; } = "";
+}
+
 public class StoredUnit
 {
 	public Guid Id { get; set; }
@@ -129,6 +148,8 @@ public class GameDbContext : DbContext
 {
 	public DbSet<StoredSprite> Sprites { get; set; }
 	public DbSet<StoredSpriteLayer> SpriteLayers { get; set; }
+	public DbSet<StoredAnimation> Animations { get; set; }
+	public DbSet<StoredAnimationParameter> AnimationParameters { get; set; }
 	public DbSet<StoredUnit> Units { get; set; }
 	public DbSet<StoredUnitTrait> UnitTraits { get; set; }
 	public DbSet<StoredUnitBehavior> UnitBehaviors { get; set; }
@@ -156,6 +177,18 @@ public class GameDbContext : DbContext
 			.HasMany(sprite => sprite.Layers)
 			.WithOne(layer => layer.StoredSprite)
 			.HasForeignKey(layer => layer.StoredSpriteId)
+			.OnDelete(DeleteBehavior.Cascade);
+
+		modelBuilder.Entity<StoredAnimation>()
+			.HasKey(animation => animation.Id);
+
+		modelBuilder.Entity<StoredAnimationParameter>()
+			.HasKey(parameter => parameter.Id);
+
+		modelBuilder.Entity<StoredAnimation>()
+			.HasMany(animation => animation.Parameters)
+			.WithOne(parameter => parameter.StoredAnimation)
+			.HasForeignKey(parameter => parameter.StoredAnimationId)
 			.OnDelete(DeleteBehavior.Cascade);
 
 		modelBuilder.Entity<StoredUnit>()
@@ -245,6 +278,7 @@ public partial class EntityFrameworkManagement : managerNode
 	{
 		unsavedObjects = new Dictionary<Guid, UnsavedObjectRegistration>();
 		SetupDatabase();
+		mAccess.animationManager?.RegisterStoredDynamicAnimations(GetAnimations());
 	}
 
 	public void SetupDatabase()
@@ -268,6 +302,24 @@ public partial class EntityFrameworkManagement : managerNode
 
 	void EnsureUnitTables(GameDbContext context)
 	{
+		context.Database.ExecuteSqlRaw("""
+			CREATE TABLE IF NOT EXISTS Animations (
+				Id TEXT NOT NULL CONSTRAINT PK_Animations PRIMARY KEY,
+				Name TEXT NOT NULL,
+				AnimationType TEXT NOT NULL,
+				Duration REAL NOT NULL
+			)
+			""");
+		context.Database.ExecuteSqlRaw("""
+			CREATE TABLE IF NOT EXISTS AnimationParameters (
+				Id TEXT NOT NULL CONSTRAINT PK_AnimationParameters PRIMARY KEY,
+				StoredAnimationId TEXT NOT NULL,
+				Key TEXT NOT NULL,
+				ValueType TEXT NOT NULL,
+				ValueJson TEXT NOT NULL,
+				CONSTRAINT FK_AnimationParameters_Animations_StoredAnimationId FOREIGN KEY (StoredAnimationId) REFERENCES Animations (Id) ON DELETE CASCADE
+			)
+			""");
 		context.Database.ExecuteSqlRaw("""
 			CREATE TABLE IF NOT EXISTS Units (
 				Id TEXT NOT NULL CONSTRAINT PK_Units PRIMARY KEY,
@@ -416,6 +468,66 @@ public partial class EntityFrameworkManagement : managerNode
 				Layers = sprite.Layers.OrderBy(layer => layer.Order).ToList()
 			})
 			.OrderBy(sprite => sprite.Name)
+			.ToList();
+	}
+
+	public void SaveAnimation(StoredAnimation animation)
+	{
+		using GameDbContext context = new GameDbContext();
+		using var transaction = context.Database.BeginTransaction();
+		StoredAnimation storedAnimation = context.Animations.FirstOrDefault(storedAnimation => storedAnimation.Id == animation.Id);
+		if (storedAnimation == null)
+		{
+			storedAnimation = context.Animations.FirstOrDefault(storedAnimation => storedAnimation.Name == animation.Name);
+		}
+
+		if (storedAnimation == null)
+		{
+			storedAnimation = new StoredAnimation
+			{
+				Id = animation.Id == Guid.Empty ? Guid.NewGuid() : animation.Id
+			};
+			context.Animations.Add(storedAnimation);
+		}
+		else
+		{
+			animation.Id = storedAnimation.Id;
+			context.AnimationParameters
+				.Where(parameter => parameter.StoredAnimationId == storedAnimation.Id)
+				.ExecuteDelete();
+		}
+
+		storedAnimation.Name = animation.Name;
+		storedAnimation.AnimationType = animation.AnimationType;
+		storedAnimation.Duration = animation.Duration;
+		context.SaveChanges();
+
+		foreach (StoredAnimationParameter parameter in animation.Parameters)
+		{
+			parameter.Id = Guid.NewGuid();
+			parameter.StoredAnimationId = storedAnimation.Id;
+			parameter.StoredAnimation = null;
+		}
+
+		context.AnimationParameters.AddRange(animation.Parameters);
+		context.SaveChanges();
+		transaction.Commit();
+	}
+
+	public List<StoredAnimation> GetAnimations()
+	{
+		using GameDbContext context = new GameDbContext();
+		return context.Animations
+			.Include(animation => animation.Parameters)
+			.Select(animation => new StoredAnimation
+			{
+				Id = animation.Id,
+				Name = animation.Name,
+				AnimationType = animation.AnimationType,
+				Duration = animation.Duration,
+				Parameters = animation.Parameters.ToList()
+			})
+			.OrderBy(animation => animation.Name)
 			.ToList();
 	}
 

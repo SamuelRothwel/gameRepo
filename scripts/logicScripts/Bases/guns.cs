@@ -54,6 +54,9 @@ public class gunTemplate
 		//projectile bullet = mAccess.projectileManager.fire(bulletType, gun.GlobalPosition, (gun.GetParent() as Node2D).GlobalRotation - 0.5f * math.PI + math.randomFloat(-0.0087, 0.0087) * spread);
 		gun.AddChild(bullet);
 	}
+	public virtual void handleAnimationEvent(Gun gun, string eventName)
+	{
+	}
 	public virtual bool hasHeat { get; set; } = true;
 	public virtual string type { get; set; } = "Template";
 	public virtual string bulletType { get; set; } = "regular";
@@ -67,61 +70,55 @@ public class gunTemplate
 		public override void shoot(Gun gun)
 		{
 			gun.heat = Math.Min(0.03+gun.heat, 4);
-			gun.rotation += (gun.heat * firerate * (gun.Delta))*100;
-			spin(gun);
-			if (gun.rotation > 120)
-            {
-				spawnBullet(gun);
-				gun.gunComponents.MoveNext();
-                gun.rotation = gun.rotation % 120;
-            }
+			startSpin(gun);
 		}
 		public override void cool(Gun gun)
 		{
 			if (gun.heat > 0.2)
-            {
-				gun.heat -= gun.Delta * gun.heat / 2 + 0.01;
-				gun.rotation += (gun.heat * firerate * (gun.Delta))*100;
-				if (gun.rotation > 120)
-				{
-					gun.gunComponents.MoveNext();
-					gun.rotation = gun.rotation % 120;
-				}
-            } else if (gun.heat > 0)
-            { 
-                gun.heat = 0;
-                spinStop(gun);
-            } else
-            {
-                spinStop(gun);
-            }
-			spin(gun);
-		}
-		public void spinStop(Gun gun)
-        {
-			if (gun.rotation != 0)
 			{
-				gun.rotation += 1.5;
-				if (gun.rotation > 120)
-				{
-					gun.rotation = 0;
-				}
+				gun.heat -= gun.Delta * gun.heat / 2 + 0.01;
+				startSpin(gun);
 			}
-        }
-		public void spin(Gun gun)
-        {
-			IEnumerable<Sprite2D> components = gun.gunComponents.loop();
-			int i = 0;
-			foreach (Sprite2D component in components)
-            {
-				float sinValue = (float)LUT.sin(i + (int)gun.rotation)+1;
-				float cosValue = (float)LUT.cos(i + (int)gun.rotation)+1;
-				component.ZIndex = (int)(cosValue*1000);
-				component.Position = component.Position with { X = (float)LUT.sin(i + (int)gun.rotation)*5};
-				component.Scale = component.Scale with { X = (float)(LUT.cos(i + (int)gun.rotation)*0.1+0.9), Y = (float)(LUT.cos(i + (int)gun.rotation)*0.1+0.9) };
-                i += 120;
-            }
-        }
+			else
+			{
+				gun.heat = 0;
+			}
+		}
+		public override void handleAnimationEvent(Gun gun, string eventName)
+		{
+			if (eventName != "finished")
+			{
+				return;
+			}
+
+			gun.dynamicAnimator = null;
+			if (gun.shooting)
+			{
+				spawnBullet(gun);
+				startSpin(gun);
+			}
+			else if (gun.heat > 0.2)
+			{
+				startSpin(gun);
+			}
+		}
+		void startSpin(Gun gun)
+		{
+			if (gun.dynamicAnimator != null && !gun.dynamicAnimator.IsComplete)
+			{
+				gun.dynamicAnimator.Speed = spinSpeed(gun);
+				return;
+			}
+
+			gun.dynamicAnimator = mAccess.animationManager.RotateCircularSprites(
+				gun.gunComponents,
+				gun.handleAnimationEvent,
+				spinSpeed(gun));
+		}
+		float spinSpeed(Gun gun)
+		{
+			return Math.Max(0.1f, (float)(gun.heat * firerate));
+		}
 	} 
 	
 	public class Sniper : gunTemplate

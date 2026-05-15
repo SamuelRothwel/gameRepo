@@ -15,6 +15,7 @@ public partial class Gun : Node2D, subComponent
 	public AnimationPlayer animator;
 	public Sprite2D[] _components;
 	public CircularEnumerator<Sprite2D> gunComponents;
+	public DynamicAnimator dynamicAnimator;
 	public double rotation = 0;
 	public bool shooting = false;
     public Type type => typeof(Gun);
@@ -46,5 +47,9 @@ public partial class Gun : Node2D, subComponent
 	public void spawnBullet()
 	{
 		guns[gunType].spawnBullet(this);
+	}
+	public void handleAnimationEvent(string eventName)
+	{
+		guns[gunType].handleAnimationEvent(this, eventName);
 	}
 }
