@@ -44,6 +44,48 @@ namespace coolbeats.scripts.managerScripts
         }
         public void setupUnitDefinitions()
         {
+            UnitDefinition marineGun = createDefaultMarineGunDefinition();
+            RegisterUnitDefinition(marineGun);
+            mAccess.entityFrameworkManager?.EnsureUnitDefinition(marineGun);
+
+            UnitDefinition marine = createDefaultMarineDefinition(marineGun.Id);
+            RegisterUnitDefinition(marine);
+            mAccess.entityFrameworkManager?.EnsureUnitDefinition(marine);
+
+            foreach (UnitDefinition storedDefinition in mAccess.entityFrameworkManager?.GetUnitDefinitions(CreateKnownBehaviors) ?? new List<UnitDefinition>())
+            {
+                RegisterUnitDefinition(storedDefinition);
+            }
+        }
+        UnitDefinition createDefaultMarineGunDefinition()
+        {
+            UnitDefinition marineGun = new UnitDefinition
+            {
+                Name = "marineGun",
+                CommandType = "",
+                Radius = 0,
+                DetectionRadius = 0,
+                MaxHP = 1,
+                BehaviorFactory = CreateKnownBehaviors
+            };
+            marineGun.DescriptiveTraits["role"] = "weapon";
+            marineGun.DescriptiveTraits["automaticBehaviour"] = "none";
+            marineGun.SpriteAttachments.Add(new UnitSpriteAttachmentData
+            {
+                Name = "barrel",
+                SpriteSetKey = "GunBarrel",
+                Order = 0
+            });
+            marineGun.Abilities.Add(new UnitAbilityData
+            {
+                AbilityName = "fire",
+                BehaviorName = "fire",
+                ParametersJson = "{}"
+            });
+            return marineGun;
+        }
+        UnitDefinition createDefaultMarineDefinition(Guid gunDefinitionId)
+        {
             UnitBehaviorProfile marineBehaviors = new UnitBehaviorProfile();
             marineBehaviors.SetCommand("move", "chaseTarget");
             marineBehaviors.SetCommand("attack", "attackTarget", "chaseTarget");
@@ -59,18 +101,41 @@ namespace coolbeats.scripts.managerScripts
                 DetectionRadius = 150,
                 MaxHP = 50,
                 BehaviorProfile = marineBehaviors,
-                BehaviorFactory = () => new IUnitBehavior[]
-                {
-                    new ScanAttackBehavior(),
-                    new ScanChaseBehavior(),
-                    new AttackTargetBehavior(),
-                    new ChaseTargetBehavior()
-                }
+                BehaviorFactory = CreateKnownBehaviors
             };
             marine.NumericalTraits["speed"] = 1;
             marine.NumericalTraits["attackRange"] = 0;
             marine.DescriptiveTraits["role"] = "attacker";
-            RegisterUnitDefinition(marine);
+            marine.SpriteAttachments.Add(new UnitSpriteAttachmentData
+            {
+                Name = "body",
+                SpriteSetKey = "Marine",
+                Order = 0,
+                Traits = new List<UnitDataTrait>
+                {
+                    new UnitDataTrait { Key = "damageable", ValueType = "bool", ValueJson = "true" },
+                    new UnitDataTrait { Key = "hitboxEnabled", ValueType = "bool", ValueJson = "true" }
+                }
+            });
+            marine.SubUnitAttachments.Add(new UnitSubUnitAttachmentData
+            {
+                ChildUnitId = gunDefinitionId,
+                Name = "gun",
+                Position = new Vector2(13, -10),
+                Order = 0,
+                ParametersJson = "{}"
+            });
+            return marine;
+        }
+        public IEnumerable<IUnitBehavior> CreateKnownBehaviors()
+        {
+            return new IUnitBehavior[]
+            {
+                new ScanAttackBehavior(),
+                new ScanChaseBehavior(),
+                new AttackTargetBehavior(),
+                new ChaseTargetBehavior()
+            };
         }
         public void RegisterUnitDefinition(UnitDefinition definition)
         {

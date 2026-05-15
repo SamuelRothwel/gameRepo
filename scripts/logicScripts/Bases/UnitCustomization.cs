@@ -50,6 +50,53 @@ public class UnitTraitSet
     }
 }
 
+public class UnitDataTrait
+{
+    public string Key { get; set; } = "";
+    public string ValueType { get; set; } = "text";
+    public string ValueJson { get; set; } = "";
+}
+
+public class UnitBehaviorData
+{
+    public string CommandName { get; set; } = "";
+    public string BehaviorName { get; set; } = "";
+    public int Order { get; set; }
+    public string ParametersJson { get; set; } = "";
+}
+
+public class UnitAbilityData
+{
+    public string AbilityName { get; set; } = "";
+    public string BehaviorName { get; set; } = "";
+    public string ParametersJson { get; set; } = "";
+}
+
+public class UnitSpriteAttachmentData
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid? StoredSpriteId { get; set; }
+    public string Name { get; set; } = "";
+    public Vector2 Position { get; set; }
+    public float Rotation { get; set; }
+    public Vector2 Scale { get; set; } = Vector2.One;
+    public int Order { get; set; }
+    public string SpriteSetKey { get; set; } = "";
+    public List<UnitDataTrait> Traits { get; set; } = new();
+}
+
+public class UnitSubUnitAttachmentData
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ChildUnitId { get; set; }
+    public string Name { get; set; } = "";
+    public Vector2 Position { get; set; }
+    public float Rotation { get; set; }
+    public int Order { get; set; }
+    public string ParametersJson { get; set; } = "";
+    public List<UnitDataTrait> Traits { get; set; } = new();
+}
+
 public class UnitBehaviorProfile
 {
     readonly Dictionary<string, List<string>> commandBehaviors = new();
@@ -64,6 +111,22 @@ public class UnitBehaviorProfile
         return commandBehaviors.TryGetValue(commandName, out List<string> behaviors)
             ? behaviors
             : Array.Empty<string>();
+    }
+
+    public IEnumerable<UnitBehaviorData> GetBehaviorData()
+    {
+        foreach (KeyValuePair<string, List<string>> command in commandBehaviors)
+        {
+            for (int i = 0; i < command.Value.Count; i++)
+            {
+                yield return new UnitBehaviorData
+                {
+                    CommandName = command.Key,
+                    BehaviorName = command.Value[i],
+                    Order = i
+                };
+            }
+        }
     }
 }
 
@@ -192,7 +255,9 @@ public class UnitAttachmentController
 
 public class UnitDefinition
 {
+    public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; }
+    public int Version { get; set; }
     public string CommandType { get; set; }
     public float Radius { get; set; }
     public float DetectionRadius { get; set; }
@@ -201,6 +266,9 @@ public class UnitDefinition
     public Dictionary<string, string> DescriptiveTraits { get; } = new();
     public UnitBehaviorProfile BehaviorProfile { get; set; } = new();
     public Func<IEnumerable<IUnitBehavior>> BehaviorFactory { get; set; } = () => Array.Empty<IUnitBehavior>();
+    public List<UnitAbilityData> Abilities { get; set; } = new();
+    public List<UnitSpriteAttachmentData> SpriteAttachments { get; set; } = new();
+    public List<UnitSubUnitAttachmentData> SubUnitAttachments { get; set; } = new();
 
     public void ApplyTo(unitControler unit)
     {

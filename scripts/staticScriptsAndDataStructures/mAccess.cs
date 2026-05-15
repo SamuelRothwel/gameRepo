@@ -19,6 +19,7 @@ public static class mAccess
 	public static InputManagement inputManager;
 	public static RecycleManagement recycleManager;
 	public static SpriteCreatorManagement spriteCreatorManager;
+	public static UnitCreatorManagement unitCreatorManager;
 	public static ColorManagement colorManager;
 	public static StyleManagement styleManager;
 	public static FileManagement fileManager;
@@ -76,6 +77,9 @@ public static class mAccess
 				case "SpriteCreatorManager":
 					spriteCreatorManager = manager as SpriteCreatorManagement;
 					break;
+				case "UnitCreatorManager":
+					unitCreatorManager = manager as UnitCreatorManagement;
+					break;
 				case "ColorManager":
 					colorManager = manager as ColorManagement;
 					break;
@@ -112,6 +116,7 @@ public static class mAccess
 		styleManager.setup();
 		windowManager.setup();
 		spriteCreatorManager.setup();
+		unitCreatorManager.setup();
 		gameManager.setup();
 		unitManager.setup();
 		teamManager.setup();

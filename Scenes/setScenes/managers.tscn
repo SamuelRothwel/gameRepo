@@ -1,4 +1,4 @@
-[gd_scene load_steps=28 format=3 uid="uid://nou2fkswxvvc"]
+[gd_scene load_steps=29 format=3 uid="uid://nou2fkswxvvc"]
 
 [ext_resource type="Script" path="res://scripts/managerScripts/LogicManagement.cs" id="1_0nxiu"]
 [ext_resource type="Script" path="res://scripts/managerScripts/EntityManagement.cs" id="1_j3fb0"]
@@ -15,6 +15,7 @@
 [ext_resource type="PackedScene" uid="uid://bhb8es5j737ax" path="res://Scenes/UIScenes/ui_assets.tscn" id="11_n1g5g"]
 [ext_resource type="PackedScene" uid="uid://chdl5ocyqtpcw" path="res://Scenes/setScenes/sprites.tscn" id="13_0w3ej"]
 [ext_resource type="Script" path="res://scripts/managerScripts/SpriteCreatorManagement.cs" id="13_gbx5e"]
+[ext_resource type="Script" path="res://scripts/managerScripts/UnitCreatorManagement.cs" id="14_xq2n8"]
 [ext_resource type="Script" path="res://scripts/managerScripts/SpriteManagement.cs" id="16_gl3df"]
 [ext_resource type="Script" path="res://scripts/managerScripts/GameManagement.cs" id="18_m1s72"]
 [ext_resource type="Script" path="res://scripts/managerScripts/DamageManagement.cs" id="19_02thw"]
@@ -69,6 +70,9 @@ UIScene = ExtResource("11_n1g5g")
 
 [node name="SpriteCreatorManager" type="Node" parent="." groups=["admin"]]
 script = ExtResource("13_gbx5e")
+
+[node name="UnitCreatorManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("14_xq2n8")
 
 [node name="UnitManager" type="Node" parent="." groups=["admin"]]
 script = ExtResource("20_473qp")

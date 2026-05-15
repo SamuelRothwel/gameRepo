@@ -5,7 +5,7 @@
 [ext_resource type="PackedScene" uid="uid://dgrmm1owxwh5y" path="res://Scenes/UIScenes/change_controls.tscn" id="3_pfa7f"]
 [ext_resource type="PackedScene" uid="uid://djucb6judxw0h" path="res://Scenes/UIScenes/sprite_creator.tscn" id="4_jv0go"]
 [ext_resource type="PackedScene" uid="uid://cdoj5x7n4ncmf" path="res://Scenes/UIScenes/color_picker.tscn" id="5_3c2n4"]
-[ext_resource type="PackedScene" path="res://Scenes/UIScenes/unit_creator.tscn" id="6_7fxvl"]
+[ext_resource type="PackedScene" uid="uid://oq1woiyoe5fj" path="res://Scenes/UIScenes/unit_creator.tscn" id="6_7fxvl"]
 
 [node name="UIAssets" type="Node"]
 

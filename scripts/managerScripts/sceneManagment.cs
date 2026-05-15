@@ -50,6 +50,7 @@ public partial class sceneManagment : managerNode
 		});
 		gameStates.Add("unitCreator", new Dictionary<string, bool>
 		{
+			{"moveCamera", true},
 		});
 		gameStates.SetDefault("menu");
     }
@@ -94,6 +95,7 @@ public partial class sceneManagment : managerNode
 			GetTree().ChangeSceneToPacked(menuScene);
 			gameStates.Switch("unitCreator");
 			mAccess.uiManager.changeUI("unitCreator");
+			mAccess.entityManager.spawnEntity("playerCamera");
 		});
 	}
 
