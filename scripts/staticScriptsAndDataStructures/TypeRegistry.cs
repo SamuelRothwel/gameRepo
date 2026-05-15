@@ -12,6 +12,16 @@ public class TypeRegistry
     public readonly Dictionary<Type, object> _instances = new();
     public void Register(object instance, Type T)  => _instances[T] = instance;
     public T Get<T>() where T : class => Unsafe.As<T>(_instances[typeof(T)]);
+    public bool TryGet<T>(out T instance) where T : class
+    {
+        if (_instances.TryGetValue(typeof(T), out object value))
+        {
+            instance = (T)value;
+            return true;
+        }
+        instance = null;
+        return false;
+    }
 }
 
 public class multiTypeRegistry
@@ -26,6 +36,14 @@ public class multiTypeRegistry
         _instances[T].Add(instance);
     }
     public List<T> Get<T>() => Unsafe.As<List<T>>(_instances[typeof(T)]);
+    public IReadOnlyList<T> GetAll<T>() where T : class
+    {
+        if (!_instances.TryGetValue(typeof(T), out List<object> instances))
+        {
+            return Array.Empty<T>();
+        }
+        return instances.Cast<T>().ToArray();
+    }
 }
 
 public class FetcherTypeRegistry

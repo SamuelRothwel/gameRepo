@@ -49,6 +49,22 @@ public class FallbackDictionaryTests
         Assert.Throws<KeyNotFoundException>(() => dictionary["missing"]);
     }
 
+    [Fact]
+    public void IndexerFallsBackThroughNamedParentState()
+    {
+        var dictionary = CreateDictionary();
+        dictionary.Add("activeCombat", new Dictionary<string, bool>
+        {
+            ["gameActive"] = true,
+        }, "combat");
+
+        dictionary.Switch("activeCombat");
+
+        Assert.True(dictionary["gameActive"]);
+        Assert.True(dictionary["canAttack"]);
+        Assert.False(dictionary["isPaused"]);
+    }
+
     private static FallbackDictionary<string, bool> CreateDictionary()
     {
         var dictionary = new FallbackDictionary<string, bool>();

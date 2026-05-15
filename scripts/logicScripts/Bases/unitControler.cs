@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Metadata.Ecma335;
 using System.Threading.Tasks;
+using coolbeats.scripts.logicScripts.AttachedLogic.Components;
 using coolbeats.scripts.logicScripts.AttachedLogic.SubComponents;
 using coolbeats.scripts.logicScripts.Bases;
 using coolbeats.scripts.managerScripts;
@@ -12,13 +13,17 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 public partial class unitControler : Node2D
 {
     public Guid ID = Guid.NewGuid();
+    public string unitKey;
     public float radius;
     public int priority;
     public float detectionRadius;
     public string type;
     public Queue<command> commandList = new Queue<command>();
     public multiTypeRegistry components { get; set; }
-    public command activeCommand;
+    public command activeCommand = new command("idle");
+    public UnitTraitSet traits { get; } = new UnitTraitSet();
+    public UnitBehaviorController behaviors { get; set; } = new UnitBehaviorController();
+    public UnitAttachmentController attachedUnits { get; } = new UnitAttachmentController();
     bool _selected;
     public bool selected { get { return _selected; } set { _selected = value; QueueRedraw(); }}
     public List<Area2D> hitBoxes;
@@ -54,7 +59,11 @@ public partial class unitControler : Node2D
         commandList.Clear();
         activateCommand(com);
     }
-    public virtual void activateCommand(command com) {}
+    public virtual void activateCommand(command com)
+    {
+        activeCommand = com;
+        behaviors.ActivateCommand(com.state);
+    }
     public void initiateHealthBar()
     {
         Node barAnchor = mAccess.entityManager.spawnEntity("healthBar");
@@ -77,6 +86,7 @@ public partial class unitControler : Node2D
             component.subComponents = new TypeRegistry();
             component.controler = this;
             components.Register(component, component.type);
+            attachedUnits.RegisterComponent(component);
             component.setup();
             IEnumerable<subComponent> subComponents = component.self.GetChildren().OfType<subComponent>(); 
             foreach (subComponent sub in subComponents)
@@ -88,6 +98,62 @@ public partial class unitControler : Node2D
         }
         initiateHealthBar();
         HP = maxHP;
+    }
+    public override void _Process(double delta)
+    {
+        behaviors.Process(this, delta);
+    }
+    public IReadOnlyList<T> GetComponents<T>() where T : class
+    {
+        return components?.GetAll<T>() ?? Array.Empty<T>();
+    }
+    public void move(Vector2 targetPosition)
+    {
+        Rotate(GetAngleTo(targetPosition) + math.PI / 2);
+        Position += (targetPosition - Position).Normalized() * traits.GetNumber("speed", 1) * 2;
+        if (Position.DistanceTo(targetPosition) < 10)
+        {
+            Next();
+        }
+        foreach (componentGun weapon in GetComponents<componentGun>())
+        {
+            if (weapon.subComponents.TryGet(out Gun gun))
+            {
+                gun.shooting = false;
+            }
+        }
+    }
+    public void attack(Guid target)
+    {
+        foreach (componentGun weapon in GetComponents<componentGun>())
+        {
+            weapon.target(target);
+        }
+    }
+    public Guid? scanTargets(float range)
+    {
+        Guid? target = null;
+        List<Guid> potentialTargets = mAccess.teamManager.searchTeams(mAccess.teamManager.GetTeam(ID).enemies, math.getMinMax(Position, range));
+        float smallest = range;
+        foreach (Guid potentialTarget in potentialTargets)
+        {
+            unitControler unit = mAccess.unitManager.units[potentialTarget];
+            float distance = Position.DistanceTo(unit.Position);
+            if (distance < smallest)
+            {
+                smallest = distance;
+                target = potentialTarget;
+            }
+        }
+        return target;
+    }
+    public UnitAttachment AttachUnit(unitControler unit, string attachmentName)
+    {
+        return attachedUnits.AttachUnit(this, unit, attachmentName);
+    }
+    public bool CallAttachment(string attachmentName, string behaviorName, command command)
+    {
+        return attachedUnits.Call(attachmentName, behaviorName, this, command);
     }
     public void die()
     {

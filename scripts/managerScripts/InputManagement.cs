@@ -138,7 +138,6 @@ namespace coolbeats.scripts.managerScripts
                                     if (selecting)
                                     {
                                         selecting = false;
-                                        mAccess.teamManager.UpdateTeamVisions();
                                         for (int i = 0; i < selectedUnits.Count; i++)
                                         {
                                             mAccess.unitManager.units[selectedUnits[i]].selected = false;

@@ -9,6 +9,7 @@ namespace coolbeats.scripts.managerScripts
     public partial class UnitManagement : managerNode
     {
         public Dictionary<Guid, unitControler> units = new Dictionary<Guid, unitControler>();
+        public Dictionary<string, UnitDefinition> unitDefinitions = new Dictionary<string, UnitDefinition>();
         public List<(string, (string, (Godot.Key, string[], string)[]))> _commandSets;
         public Dictionary<string, (int, Dictionary<Godot.Key, (string[], string)>)> commandSets;
         public List<Guid> selectedUnit = new List<Guid>();
@@ -39,6 +40,41 @@ namespace coolbeats.scripts.managerScripts
                 }
                 commandSets[set.Item1] = (i, newSet);
             }
+            setupUnitDefinitions();
+        }
+        public void setupUnitDefinitions()
+        {
+            UnitBehaviorProfile marineBehaviors = new UnitBehaviorProfile();
+            marineBehaviors.SetCommand("move", "chaseTarget");
+            marineBehaviors.SetCommand("attack", "attackTarget", "chaseTarget");
+            marineBehaviors.SetCommand("idle", "scanAttack", "scanChase");
+            marineBehaviors.SetCommand("holdPosition", "scanAttack", "attackTarget");
+            marineBehaviors.SetCommand("attackMove", "scanAttack", "scanChase", "chaseTarget");
+
+            UnitDefinition marine = new UnitDefinition
+            {
+                Name = "marine",
+                CommandType = "attacker",
+                Radius = 30,
+                DetectionRadius = 150,
+                MaxHP = 50,
+                BehaviorProfile = marineBehaviors,
+                BehaviorFactory = () => new IUnitBehavior[]
+                {
+                    new ScanAttackBehavior(),
+                    new ScanChaseBehavior(),
+                    new AttackTargetBehavior(),
+                    new ChaseTargetBehavior()
+                }
+            };
+            marine.NumericalTraits["speed"] = 1;
+            marine.NumericalTraits["attackRange"] = 0;
+            marine.DescriptiveTraits["role"] = "attacker";
+            RegisterUnitDefinition(marine);
+        }
+        public void RegisterUnitDefinition(UnitDefinition definition)
+        {
+            unitDefinitions[definition.Name] = definition;
         }
         public Guid createUnit(string name, int team)
         {
@@ -48,6 +84,11 @@ namespace coolbeats.scripts.managerScripts
         }
         public void add(unitControler unit, int team)
         {
+            string unitKey = string.IsNullOrEmpty(unit.unitKey) ? unit.Name.ToString() : unit.unitKey;
+            if (unitDefinitions.TryGetValue(unitKey, out UnitDefinition definition))
+            {
+                definition.ApplyTo(unit);
+            }
             unit.priority = commandSets[unit.type].Item1;
             units[unit.ID] = unit;
             mAccess.teamManager.addUnit(unit.ID, team);

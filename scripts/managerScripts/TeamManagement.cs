@@ -39,6 +39,13 @@ namespace coolbeats.scripts.managerScripts
         {
             teams[team].units.Add(ID);
         }
+        public override void _Process(double delta)
+        {
+            if (mAccess.sceneManager?.gameStates?["gameActive"] == true)
+            {
+                UpdateTeamVisions();
+            }
+        }
         public void UpdateTeamVisions()
         {
             for (int i = 0; i < teams.Length; i ++)

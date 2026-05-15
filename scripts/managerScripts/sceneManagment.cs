@@ -29,15 +29,20 @@ public partial class sceneManagment : managerNode
 		gameStates = new FallbackDictionary<string, bool>();
 		gameStates.Add("menu", new Dictionary<string, bool>
 		{
+			{"gameActive", false},
 			{"moveCamera", false},
 			{"unitControl", false},
 			{"draw", false},
+		});
+		gameStates.Add("gameActive", new Dictionary<string, bool>
+		{
+			{"gameActive", true},
 		});
 		gameStates.Add("inGame", new Dictionary<string, bool>
 		{
 			{"moveCamera", true},
 			{"unitControl", true},
-		});
+		}, "gameActive");
 		gameStates.Add("spriteCreator", new Dictionary<string, bool>
 		{
 			{"moveCamera", true},
@@ -61,7 +66,6 @@ public partial class sceneManagment : managerNode
 			mAccess.unitManager.createUnit("marine", 1);
 			mAccess.uiManager.changeUI("game");
 			mAccess.entityManager.spawnEntity("playerCamera");
-        	mAccess.teamManager.UpdateTeamVisions();
 		});
 	}
 	public void startMenu()
