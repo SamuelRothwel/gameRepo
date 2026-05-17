@@ -15,6 +15,7 @@ public partial class SandboxScene : Node2D
 	readonly List<Guid> spawnedUnitIds = new();
 	readonly List<DynamicAnimator> activeDynamicAnimators = new();
 	int spawnCount;
+	const ulong FrameBudgetUsec = 10000;
 
 	public override void _Ready()
 	{
@@ -26,10 +27,7 @@ public partial class SandboxScene : Node2D
 
 	public override void _ExitTree()
 	{
-		foreach (Guid id in spawnedUnitIds)
-		{
-			mAccess.unitManager?.remove(id);
-		}
+		ClearTrackedUnits(spawnedUnitIds);
 		foreach (Node node in spawnedNodes)
 		{
 			if (GodotObject.IsInstanceValid(node))
@@ -92,6 +90,11 @@ public partial class SandboxScene : Node2D
 		benchmarkButton.Text = "3 Second Animation Test";
 		benchmarkButton.Pressed += StartBenchmark;
 		content.AddChild(benchmarkButton);
+
+		Button entityCapacityButton = new Button();
+		entityCapacityButton.Text = "0.01s Entity Capacity Test";
+		entityCapacityButton.Pressed += StartEntityCapacityTest;
+		content.AddChild(entityCapacityButton);
 
 		Button clearButton = new Button();
 		clearButton.Text = "Clear Spawned";
@@ -287,6 +290,176 @@ public partial class SandboxScene : Node2D
 		player.Stop();
 		statusLabel.Text = "Stress test completed in 3 seconds: " + runs + " animation runs.";
 	}
+
+	void StartEntityCapacityTest()
+	{
+		string unitName = GetSelectedMetadata(entityChoice);
+		AnimationSelection selection = GetAnimationSelection();
+		if (string.IsNullOrEmpty(unitName) || !selection.IsValid)
+		{
+			return;
+		}
+		if (selection.IsDynamic)
+		{
+			StressTestDynamicEntityCapacity(selection.Name);
+			return;
+		}
+
+		StressTestEntityAnimationCapacity(unitName, selection.Name);
+	}
+
+	void StressTestDynamicEntityCapacity(string animationName)
+	{
+		if (!mAccess.animationManager.dynamicAnimationDefinitions.TryGetValue(animationName, out DynamicAnimationDefinition definition))
+		{
+			statusLabel.Text = "Unable to run dynamic animation " + animationName + ".";
+			return;
+		}
+
+		int entityCount = 1;
+		int bestCount = 0;
+		ulong bestElapsed = 0;
+		while (true)
+		{
+			ulong elapsed = TimeDynamicAnimationBatch(definition, entityCount);
+			if (elapsed > FrameBudgetUsec)
+			{
+				break;
+			}
+			bestCount = entityCount;
+			bestElapsed = elapsed;
+			entityCount *= 2;
+		}
+
+		statusLabel.Text = "0.01s capacity: " + bestCount + " dynamic animation targets at once"
+			+ (bestCount > 0 ? " (" + FormatUsec(bestElapsed) + ")." : ".");
+	}
+
+	ulong TimeDynamicAnimationBatch(DynamicAnimationDefinition definition, int entityCount)
+	{
+		ulong start = Time.GetTicksUsec();
+		for (int i = 0; i < entityCount; i++)
+		{
+			DynamicAnimator animator = new DynamicAnimator(definition, new CircularSpriteAnimationTarget(rigSprites), null);
+			animator.Process(Math.Max(definition.Duration, 0.001f));
+		}
+		return Time.GetTicksUsec() - start;
+	}
+
+	void StressTestEntityAnimationCapacity(string unitName, string animationName)
+	{
+		if (!CanSpawnUnit(unitName))
+		{
+			return;
+		}
+
+		List<Guid> testUnitIds = new();
+		List<Node> testNodes = new();
+		List<Node> cleanupNodes = new();
+		try
+		{
+			int entityCount = 1;
+			int bestCount = 0;
+			ulong bestElapsed = 0;
+			while (true)
+			{
+				EnsureCapacityTestEntities(unitName, entityCount, testUnitIds, testNodes, cleanupNodes);
+				List<AnimationPlayer> players = testNodes
+					.Where(GodotObject.IsInstanceValid)
+					.Select(node => FindAnimationPlayer(node, animationName))
+					.Where(player => player != null)
+					.ToList();
+
+				if (players.Count < entityCount)
+				{
+					statusLabel.Text = unitName + " only has " + players.Count + " entities with animation " + animationName + ".";
+					return;
+				}
+
+				ulong elapsed = TimeAnimationPlayerBatch(players, animationName);
+				if (elapsed > FrameBudgetUsec)
+				{
+					break;
+				}
+				bestCount = entityCount;
+				bestElapsed = elapsed;
+				entityCount *= 2;
+			}
+
+			statusLabel.Text = "0.01s capacity: " + bestCount + " " + unitName + " entities at once"
+				+ (bestCount > 0 ? " (" + FormatUsec(bestElapsed) + ")." : ".");
+		}
+		finally
+		{
+			ClearTrackedUnits(testUnitIds);
+			foreach (Node node in cleanupNodes)
+			{
+				if (GodotObject.IsInstanceValid(node))
+				{
+					node.QueueFree();
+				}
+			}
+		}
+	}
+
+	bool CanSpawnUnit(string unitName)
+	{
+		if (!mAccess.entityManager.packedEntities.ContainsKey(unitName))
+		{
+			statusLabel.Text = unitName + " is in the database, but no packed entity named " + unitName + " exists.";
+			return false;
+		}
+		if (!mAccess.unitManager.unitDefinitions.ContainsKey(unitName))
+		{
+			statusLabel.Text = unitName + " has a packed entity, but no registered unit definition.";
+			return false;
+		}
+		return true;
+	}
+
+	void EnsureCapacityTestEntities(
+		string unitName,
+		int entityCount,
+		List<Guid> testUnitIds,
+		List<Node> testNodes,
+		List<Node> cleanupNodes)
+	{
+		while (testNodes.Count < entityCount)
+		{
+			HashSet<Node> previousEntityChildren = mAccess.entityManager.GetChildren().ToHashSet();
+			Guid id = mAccess.unitManager.createUnit(unitName, 0);
+			unitControler unit = mAccess.unitManager.units[id];
+			unit.Position = new Vector2(9000 + testNodes.Count * 20, 9000);
+			testUnitIds.Add(id);
+			testNodes.Add(unit);
+			foreach (Node node in mAccess.entityManager.GetChildren())
+			{
+				if (!previousEntityChildren.Contains(node) && !cleanupNodes.Contains(node))
+				{
+					cleanupNodes.Add(node);
+				}
+			}
+		}
+	}
+
+	ulong TimeAnimationPlayerBatch(List<AnimationPlayer> players, string animationName)
+	{
+		Animation animation = players[0].GetAnimation(animationName);
+		double duration = Math.Max(animation?.Length ?? 0.001, 0.001);
+		ulong start = Time.GetTicksUsec();
+		foreach (AnimationPlayer player in players)
+		{
+			player.Play(animationName);
+			player.Advance(duration);
+			player.Stop();
+		}
+		return Time.GetTicksUsec() - start;
+	}
+
+	string FormatUsec(ulong usec)
+	{
+		return (usec / 1000.0).ToString("0.###") + "ms";
+	}
 	
 	DynamicAnimator StartDynamicAnimation(string animationName, Action<string> eventHandler)
 	{
@@ -304,12 +477,22 @@ public partial class SandboxScene : Node2D
 	{
 		foreach (Node root in spawnedNodes.Where(GodotObject.IsInstanceValid))
 		{
-			foreach (AnimationPlayer player in FindChildrenOfType<AnimationPlayer>(root))
+			AnimationPlayer player = FindAnimationPlayer(root, animationName);
+			if (player != null)
 			{
-				if (player.HasAnimation(animationName))
-				{
-					return player;
-				}
+				return player;
+			}
+		}
+		return null;
+	}
+
+	AnimationPlayer FindAnimationPlayer(Node root, string animationName)
+	{
+		foreach (AnimationPlayer player in FindChildrenOfType<AnimationPlayer>(root))
+		{
+			if (player.HasAnimation(animationName))
+			{
+				return player;
 			}
 		}
 		return null;
@@ -332,10 +515,7 @@ public partial class SandboxScene : Node2D
 
 	void ClearSpawned()
 	{
-		foreach (Guid id in spawnedUnitIds)
-		{
-			mAccess.unitManager?.remove(id);
-		}
+		ClearTrackedUnits(spawnedUnitIds);
 		foreach (Node node in spawnedNodes)
 		{
 			if (GodotObject.IsInstanceValid(node))
@@ -346,6 +526,22 @@ public partial class SandboxScene : Node2D
 		spawnedUnitIds.Clear();
 		spawnedNodes.Clear();
 		statusLabel.Text = "Cleared spawned sandbox entities.";
+	}
+
+	void ClearTrackedUnits(List<Guid> unitIds)
+	{
+		foreach (Guid id in unitIds)
+		{
+			mAccess.unitManager?.remove(id);
+			if (mAccess.teamManager?.teams != null)
+			{
+				foreach (team team in mAccess.teamManager.teams)
+				{
+					team.units.Remove(id);
+				}
+			}
+		}
+		unitIds.Clear();
 	}
 
 	string GetSelectedMetadata(OptionButton optionButton)
