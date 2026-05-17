@@ -1,7 +1,7 @@
 [gd_scene load_steps=6 format=3 uid="uid://dalhs1on3mcak"]
 
-[ext_resource type="FontFile" uid="uid://byl0mlh7fn6it" path="res://visualAssets/Fonts/Xirod.otf" id="1_x5if7"]
 [ext_resource type="Script" path="res://scripts/UIScripts/StartButton.cs" id="2_5cfns"]
+[ext_resource type="Script" path="res://scripts/UIScripts/ExitButton.cs" id="2_du24d"]
 [ext_resource type="Script" path="res://scripts/UIScripts/UnitCreatorButton.cs" id="3_yq64e"]
 [ext_resource type="Script" path="res://scripts/UIScripts/SettingsButton.cs" id="4_4q1ve"]
 [ext_resource type="Script" path="res://scripts/UIScripts/SandboxButton.cs" id="5_rkf08"]
@@ -13,8 +13,7 @@ offset_left = 546.0
 offset_top = 546.0
 offset_right = 699.0
 offset_bottom = 594.0
-theme_override_fonts/font = ExtResource("1_x5if7")
-text = "START"
+text = "Start"
 script = ExtResource("2_5cfns")
 
 [node name="ExitButton" type="Button" parent="."]
@@ -22,17 +21,15 @@ offset_left = 896.0
 offset_top = 539.0
 offset_right = 1049.0
 offset_bottom = 587.0
-theme_override_fonts/font = ExtResource("1_x5if7")
-text = "EXit"
-script = ExtResource("2_5cfns")
+text = "Exit"
+script = ExtResource("2_du24d")
 
 [node name="TestButton" type="Button" parent="."]
 offset_left = 713.0
 offset_top = 543.0
 offset_right = 866.0
 offset_bottom = 591.0
-theme_override_fonts/font = ExtResource("1_x5if7")
-text = "TEST"
+text = "Test"
 script = ExtResource("5_rkf08")
 
 [node name="SettingsButton" type="Button" parent="."]
@@ -40,7 +37,6 @@ offset_left = 366.0
 offset_top = 545.0
 offset_right = 519.0
 offset_bottom = 593.0
-theme_override_fonts/font = ExtResource("1_x5if7")
 text = "Settings"
 script = ExtResource("4_4q1ve")
 
@@ -49,7 +45,5 @@ offset_left = 156.0
 offset_top = 544.0
 offset_right = 330.0
 offset_bottom = 592.0
-theme_override_fonts/font = ExtResource("1_x5if7")
-text = "unitCreator
-"
+text = "Unit Creator"
 script = ExtResource("3_yq64e")

@@ -59,6 +59,7 @@ public partial class SpriteCreatorSidebar : VBoxContainer
         Button button = new Button();
         button.Text = label;
         button.CustomMinimumSize = new Vector2(54, 54);
+        mAccess.styleManager.applyButtonStyle(button, "secondary");
         return button;
     }
 
@@ -72,24 +73,7 @@ public partial class SpriteCreatorSidebar : VBoxContainer
 
     void setButtonColor(Button button, Color color)
     {
-        StyleBoxFlat normal = createSwatchStyle(color);
-        StyleBoxFlat hover = createSwatchStyle(color.Lightened(0.15f));
-        StyleBoxFlat pressed = createSwatchStyle(color.Darkened(0.15f));
-        button.AddThemeStyleboxOverride("normal", normal);
-        button.AddThemeStyleboxOverride("hover", hover);
-        button.AddThemeStyleboxOverride("pressed", pressed);
-    }
-
-    StyleBoxFlat createSwatchStyle(Color color)
-    {
-        StyleBoxFlat style = new StyleBoxFlat();
-        style.BgColor = color;
-        style.BorderColor = new Color(0.05f, 0.05f, 0.05f, 1f);
-        style.BorderWidthBottom = 2;
-        style.BorderWidthLeft = 2;
-        style.BorderWidthRight = 2;
-        style.BorderWidthTop = 2;
-        return style;
+        mAccess.styleManager.applySwatchStyle(button, color);
     }
 
     void onColorButtonInput(InputEvent inputEvent, string colorName, Button colorButton)
@@ -137,6 +121,7 @@ public partial class SpriteCreatorSidebar : VBoxContainer
         {
             Label emptyLabel = new Label();
             emptyLabel.Text = "No saved sprites";
+            mAccess.styleManager.applyTextStyle(emptyLabel, "muted");
             savedSpritesList.AddChild(emptyLabel);
             return scroll;
         }
@@ -153,7 +138,7 @@ public partial class SpriteCreatorSidebar : VBoxContainer
     {
         Button rowButton = new Button();
         rowButton.Text = "";
-        rowButton.Flat = true;
+        mAccess.styleManager.applyButtonStyle(rowButton, "secondary");
         rowButton.CustomMinimumSize = new Vector2(130, 58);
         rowButton.Pressed += () =>
         {
@@ -187,6 +172,7 @@ public partial class SpriteCreatorSidebar : VBoxContainer
         nameLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         nameLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         nameLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
+        mAccess.styleManager.applyTextStyle(nameLabel, "default");
         row.AddChild(nameLabel);
 
         return rowButton;

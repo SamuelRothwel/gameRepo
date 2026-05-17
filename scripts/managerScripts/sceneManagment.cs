@@ -133,6 +133,10 @@ public partial class sceneManagment : managerNode
 
 	private void InitialiseNode(Node node)
 	{
+		if (mAccess.styleManager != null)
+		{
+			mAccess.styleManager.applyUniversalStyleTree(node);
+		}
 		if (node is CanvasItem canvasItem)
 		{
 			mAccess.layerManager.addLayer(canvasItem);

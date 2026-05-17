@@ -104,6 +104,8 @@ public partial class WindowManagement : managerNode
 		Panel panel = new Panel();
 		panel.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		insetControl(panel, preset.shadowSize);
+		panel.SetMeta("styleManaged", true);
+		panel.SetMeta("styleType", "windowInternal");
 		panel.AddThemeStyleboxOverride("panel", createWindowStyle(preset));
 		root.AddChild(panel);
 
@@ -134,6 +136,7 @@ public partial class WindowManagement : managerNode
 			Button closeButton = new Button();
 			closeButton.Text = "X";
 			closeButton.CustomMinimumSize = new Vector2(28, 28);
+			mAccess.styleManager.applyButtonStyle(closeButton, "secondary");
 			closeButton.AnchorLeft = 1f;
 			closeButton.AnchorRight = 1f;
 			closeButton.OffsetLeft = -preset.shadowSize - 34f;
@@ -186,6 +189,8 @@ public partial class WindowManagement : managerNode
 			glowLayer.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 			insetControl(glowLayer, preset.shadowSize - spread);
 			glowLayer.MouseFilter = Control.MouseFilterEnum.Ignore;
+			glowLayer.SetMeta("styleManaged", true);
+			glowLayer.SetMeta("styleType", "windowInternal");
 			glowLayer.AddThemeStyleboxOverride("panel", createWindowGlowStyle(preset, layer, layerCount));
 			glowRoot.AddChild(glowLayer);
 		}

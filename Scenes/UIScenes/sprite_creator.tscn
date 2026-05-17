@@ -1,12 +1,9 @@
-[gd_scene load_steps=6 format=3 uid="uid://djucb6judxw0h"]
+[gd_scene load_steps=5 format=3 uid="uid://djucb6judxw0h"]
 
 [ext_resource type="Script" path="res://scripts/UIScripts/AddSpriteLayerButton.cs" id="1_6j2wl"]
 [ext_resource type="Script" path="res://scripts/UIScripts/SpriteScrollContainer.cs" id="2_7p8ee"]
 [ext_resource type="Script" path="res://scripts/UIScripts/SaveSpriteButton.cs" id="3_5nwqb"]
 [ext_resource type="Script" path="res://scripts/UIScripts/SpriteCreatorSidebar.cs" id="4_0q1ey"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cwi0k"]
-bg_color = Color(0.245984, 0.245984, 0.245984, 1)
 
 [node name="spriteCreator" type="Control"]
 layout_mode = 3
@@ -79,4 +76,3 @@ grow_vertical = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_cwi0k")

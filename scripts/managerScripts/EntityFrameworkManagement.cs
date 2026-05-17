@@ -175,6 +175,12 @@ public class StoredUnitSubUnitTrait
 	public string ValueJson { get; set; } = "";
 }
 
+public class StoredGameSetting
+{
+	public string Key { get; set; } = "";
+	public string ValueJson { get; set; } = "";
+}
+
 public class GameDbContext : DbContext
 {
 	public static string DatabasePath { get; set; } = ProjectSettings.GlobalizePath("user://game_data.db");
@@ -192,6 +198,7 @@ public class GameDbContext : DbContext
 	public DbSet<StoredUnitSpriteTrait> UnitSpriteTraits { get; set; }
 	public DbSet<StoredUnitSubUnitAttachment> UnitSubUnitAttachments { get; set; }
 	public DbSet<StoredUnitSubUnitTrait> UnitSubUnitTraits { get; set; }
+	public DbSet<StoredGameSetting> GameSettings { get; set; }
 
 	protected override void OnConfiguring(DbContextOptionsBuilder options)
 	{
@@ -266,6 +273,9 @@ public class GameDbContext : DbContext
 		modelBuilder.Entity<StoredUnitSubUnitTrait>()
 			.HasKey(trait => trait.Id);
 
+		modelBuilder.Entity<StoredGameSetting>()
+			.HasKey(setting => setting.Key);
+
 		modelBuilder.Entity<StoredUnit>()
 			.HasMany(unit => unit.Traits)
 			.WithOne(trait => trait.StoredUnit)
@@ -326,6 +336,7 @@ public partial class EntityFrameworkManagement : managerNode
 {
 	const string MainDatabaseName = "game_data.db";
 	const string TextDataFileName = "text data.json";
+	const string GameSettingsKey = "game_settings";
 	public Dictionary<Guid, UnsavedObjectRegistration> unsavedObjects;
 	public DatabaseStorageTextData databaseTextData;
 	public override void setup()
@@ -333,6 +344,7 @@ public partial class EntityFrameworkManagement : managerNode
 		unsavedObjects = new Dictionary<Guid, UnsavedObjectRegistration>();
 		SetupDatabaseStorage();
 		SetupDatabase();
+		ApplyStoredAudioSettings();
 		mAccess.animationManager?.RegisterStoredDynamicAnimations(GetAnimations());
 	}
 
@@ -488,6 +500,7 @@ public partial class EntityFrameworkManagement : managerNode
 		context.Database.EnsureCreated();
 		EnsureSpriteVersionColumn(context);
 		EnsureUnitTables(context);
+		EnsureGameSettingsTable(context);
 	}
 
 	void EnsureSpriteVersionColumn(GameDbContext context)
@@ -644,6 +657,16 @@ public partial class EntityFrameworkManagement : managerNode
 			""");
 	}
 
+	void EnsureGameSettingsTable(GameDbContext context)
+	{
+		context.Database.ExecuteSqlRaw("""
+			CREATE TABLE IF NOT EXISTS GameSettings (
+				Key TEXT NOT NULL CONSTRAINT PK_GameSettings PRIMARY KEY,
+				ValueJson TEXT NOT NULL
+			)
+			""");
+	}
+
 	void EnsureAnimationTransformationColumns(GameDbContext context)
 	{
 		try
@@ -660,6 +683,55 @@ public partial class EntityFrameworkManagement : managerNode
 		catch
 		{
 		}
+	}
+
+	public StoredGameSettings LoadGameSettings()
+	{
+		using GameDbContext context = new GameDbContext();
+		StoredGameSetting setting = context.GameSettings.FirstOrDefault(setting => setting.Key == GameSettingsKey);
+		if (setting == null || string.IsNullOrWhiteSpace(setting.ValueJson))
+		{
+			return null;
+		}
+
+		try
+		{
+			return JsonSerializer.Deserialize<StoredGameSettings>(setting.ValueJson, CreateTextDataJsonOptions()) ?? new StoredGameSettings();
+		}
+		catch
+		{
+			return null;
+		}
+	}
+
+	public void SaveGameSettings(StoredGameSettings settings)
+	{
+		using GameDbContext context = new GameDbContext();
+		StoredGameSetting setting = context.GameSettings.FirstOrDefault(setting => setting.Key == GameSettingsKey);
+		if (setting == null)
+		{
+			setting = new StoredGameSetting
+			{
+				Key = GameSettingsKey
+			};
+			context.GameSettings.Add(setting);
+		}
+
+		setting.ValueJson = JsonSerializer.Serialize(settings, CreateTextDataJsonOptions());
+		context.SaveChanges();
+	}
+
+	void ApplyStoredAudioSettings()
+	{
+		StoredGameSettings settings = LoadGameSettings();
+		if (settings == null)
+		{
+			return;
+		}
+
+		int busIndex = AudioServer.GetBusIndex("Master");
+		float linearVolume = Mathf.Max(settings.MasterVolumePercent / 100f, 0.0001f);
+		AudioServer.SetBusVolumeDb(busIndex, Mathf.LinearToDb(linearVolume));
 	}
 
 	public int SaveSprite(Guid id, string name, int version, List<StoredSpriteLayer> layers)
@@ -1283,6 +1355,7 @@ public partial class EntityFrameworkManagement : managerNode
 		Label label = new Label();
 		label.Text = registration.Name + " has unsaved changes.";
 		label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+		mAccess.styleManager.applyTextStyle(label, "default");
 		content.AddChild(label);
 
 		HBoxContainer buttons = new HBoxContainer();
@@ -1290,6 +1363,7 @@ public partial class EntityFrameworkManagement : managerNode
 
 		Button saveButton = new Button();
 		saveButton.Text = "Save";
+		mAccess.styleManager.applyButtonStyle(saveButton, "secondary");
 		saveButton.Pressed += () =>
 		{
 			int savedVersion = registration.Save();
@@ -1301,6 +1375,7 @@ public partial class EntityFrameworkManagement : managerNode
 
 		Button dontSaveButton = new Button();
 		dontSaveButton.Text = "Don't Save";
+		mAccess.styleManager.applyButtonStyle(dontSaveButton, "secondary");
 		dontSaveButton.Pressed += () =>
 		{
 			registration.Discard?.Invoke();
@@ -1312,6 +1387,7 @@ public partial class EntityFrameworkManagement : managerNode
 
 		Button cancelButton = new Button();
 		cancelButton.Text = "Cancel";
+		mAccess.styleManager.applyButtonStyle(cancelButton, "secondary");
 		cancelButton.Pressed += () =>
 		{
 			mAccess.windowManager.closeWindow("Unsaved Changes", false);
@@ -1338,4 +1414,83 @@ public class DatabaseStorageTextData
 	public string MostRecentDatabaseName { get; set; } = "game_data.db";
 	public List<string> ExistingDatabases { get; set; } = new();
 	public bool UseBranchDatabases { get; set; }
+}
+
+public class StoredGameSettings
+{
+	public int ActiveColorSchemeIndex { get; set; }
+	public float MasterVolumePercent { get; set; } = 100f;
+	public Dictionary<string, StoredColorValue> Colors { get; set; } = new();
+	public Dictionary<string, StoredTextStyleSettings> TextStyles { get; set; } = new();
+}
+
+public class StoredColorValue
+{
+	public float R { get; set; }
+	public float G { get; set; }
+	public float B { get; set; }
+	public float A { get; set; } = 1f;
+
+	public StoredColorValue()
+	{
+	}
+
+	public StoredColorValue(Color color)
+	{
+		R = color.R;
+		G = color.G;
+		B = color.B;
+		A = color.A;
+	}
+
+	public Color ToColor()
+	{
+		return new Color(R, G, B, A);
+	}
+}
+
+public class StoredTextStyleSettings
+{
+	public string ColorName { get; set; } = "";
+	public string HoverColorName { get; set; } = "";
+	public string PressedColorName { get; set; } = "";
+	public string DisabledColorName { get; set; } = "";
+	public int FontSize { get; set; }
+	public string FontName { get; set; } = "";
+	public bool Bold { get; set; }
+	public bool Italic { get; set; }
+	public bool Underline { get; set; }
+
+	public StoredTextStyleSettings()
+	{
+	}
+
+	public StoredTextStyleSettings(TextStyle style)
+	{
+		ColorName = style.colorName;
+		HoverColorName = style.hoverColorName;
+		PressedColorName = style.pressedColorName;
+		DisabledColorName = style.disabledColorName;
+		FontSize = style.fontSize;
+		FontName = style.fontName;
+		Bold = style.bold;
+		Italic = style.italic;
+		Underline = style.underline;
+	}
+
+	public TextStyle ToTextStyle(TextStyle fallback)
+	{
+		return new TextStyle
+		(
+			string.IsNullOrWhiteSpace(ColorName) ? fallback.colorName : ColorName,
+			string.IsNullOrWhiteSpace(HoverColorName) ? fallback.hoverColorName : HoverColorName,
+			string.IsNullOrWhiteSpace(PressedColorName) ? fallback.pressedColorName : PressedColorName,
+			string.IsNullOrWhiteSpace(DisabledColorName) ? fallback.disabledColorName : DisabledColorName,
+			FontSize <= 0 ? fallback.fontSize : FontSize,
+			string.IsNullOrWhiteSpace(FontName) ? fallback.fontName : FontName,
+			Bold,
+			Italic,
+			Underline
+		);
+	}
 }

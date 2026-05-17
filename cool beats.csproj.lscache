@@ -164,6 +164,7 @@ scripts/staticScriptsAndDataStructures/
 scripts/UIScripts/
  AddSpriteLayerButton.cs
  ColorPicker.cs
+ ExitButton.cs
  SandboxButton.cs
  SandboxScene.cs
  SaveSpriteButton.cs

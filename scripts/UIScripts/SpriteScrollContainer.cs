@@ -66,7 +66,7 @@ public partial class SpriteScrollContainer : VBoxContainer
 		Button slot = new Button();
 		slot.CustomMinimumSize = spriteSize + marginLength * 2;
 		slot.Text = "";
-		slot.Flat = true;
+		mAccess.styleManager.applyButtonStyle(slot, "secondary");
 		slot.GuiInput += inputEvent => OnSlotGuiInput(Name, slot, inputEvent);
 		AddChild(slot);
 

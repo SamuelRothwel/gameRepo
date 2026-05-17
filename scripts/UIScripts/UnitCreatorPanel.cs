@@ -110,6 +110,7 @@ public partial class UnitCreatorPanel : Control
 
 		Label info = new Label();
 		info.Text = "Select a component";
+		mAccess.styleManager.applyTextStyle(info, "muted");
 		inspector.AddChild(info);
 	}
 
@@ -123,18 +124,21 @@ public partial class UnitCreatorPanel : Control
 		Button spritesButton = new Button();
 		spritesButton.Text = "Sprites";
 		spritesButton.CustomMinimumSize = new Vector2(150, 34);
+		mAccess.styleManager.applyButtonStyle(spritesButton, "secondary");
 		spritesButton.Pressed += ShowSpritesSubMenu;
 		tools.AddChild(spritesButton);
 
 		Button unitsButton = new Button();
 		unitsButton.Text = "Open Units";
 		unitsButton.CustomMinimumSize = new Vector2(150, 34);
+		mAccess.styleManager.applyButtonStyle(unitsButton, "secondary");
 		unitsButton.Pressed += ShowUnitsSubMenu;
 		tools.AddChild(unitsButton);
 
 		Button saveUnitButton = new Button();
 		saveUnitButton.Text = "Save Unit";
 		saveUnitButton.CustomMinimumSize = new Vector2(150, 34);
+		mAccess.styleManager.applyButtonStyle(saveUnitButton, "secondary");
 		saveUnitButton.Pressed += () => mAccess.unitCreatorManager.SaveActiveUnit();
 		tools.AddChild(saveUnitButton);
 
@@ -148,6 +152,7 @@ public partial class UnitCreatorPanel : Control
 		Button backButton = new Button();
 		backButton.Text = "Back";
 		backButton.CustomMinimumSize = new Vector2(150, 34);
+		mAccess.styleManager.applyButtonStyle(backButton, "secondary");
 		backButton.Pressed += ShowMainTools;
 		tools.AddChild(backButton);
 
@@ -166,6 +171,7 @@ public partial class UnitCreatorPanel : Control
 		{
 			Label emptyLabel = new Label();
 			emptyLabel.Text = "No saved sprites";
+			mAccess.styleManager.applyTextStyle(emptyLabel, "muted");
 			spriteList.AddChild(emptyLabel);
 		}
 		else
@@ -179,6 +185,7 @@ public partial class UnitCreatorPanel : Control
 		Button createSpriteButton = new Button();
 		createSpriteButton.Text = "Create Sprite";
 		createSpriteButton.CustomMinimumSize = new Vector2(150, 34);
+		mAccess.styleManager.applyButtonStyle(createSpriteButton, "secondary");
 		createSpriteButton.Pressed += () => mAccess.sceneManager.spriteCreator();
 		tools.AddChild(createSpriteButton);
 	}
@@ -187,7 +194,7 @@ public partial class UnitCreatorPanel : Control
 	{
 		Button rowButton = new Button();
 		rowButton.Text = "";
-		rowButton.Flat = true;
+		mAccess.styleManager.applyButtonStyle(rowButton, "secondary");
 		rowButton.CustomMinimumSize = new Vector2(150, 54);
 		rowButton.GuiInput += inputEvent => HandleLibrarySpriteInput(inputEvent, storedSprite);
 
@@ -212,6 +219,7 @@ public partial class UnitCreatorPanel : Control
 		nameLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 		nameLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		nameLabel.MouseFilter = MouseFilterEnum.Ignore;
+		mAccess.styleManager.applyTextStyle(nameLabel, "default");
 		row.AddChild(nameLabel);
 
 		return rowButton;
@@ -224,6 +232,7 @@ public partial class UnitCreatorPanel : Control
 		Button backButton = new Button();
 		backButton.Text = "Back";
 		backButton.CustomMinimumSize = new Vector2(150, 34);
+		mAccess.styleManager.applyButtonStyle(backButton, "secondary");
 		backButton.Pressed += ShowMainTools;
 		tools.AddChild(backButton);
 
@@ -242,6 +251,7 @@ public partial class UnitCreatorPanel : Control
 		{
 			Label emptyLabel = new Label();
 			emptyLabel.Text = "No saved units";
+			mAccess.styleManager.applyTextStyle(emptyLabel, "muted");
 			unitList.AddChild(emptyLabel);
 		}
 		else
@@ -255,6 +265,7 @@ public partial class UnitCreatorPanel : Control
 		Button createUnitButton = new Button();
 		createUnitButton.Text = "Create Unit";
 		createUnitButton.CustomMinimumSize = new Vector2(150, 34);
+		mAccess.styleManager.applyButtonStyle(createUnitButton, "secondary");
 		createUnitButton.Pressed += () =>
 		{
 			mAccess.unitCreatorManager.CreateNewUnit();
@@ -274,7 +285,7 @@ public partial class UnitCreatorPanel : Control
 	{
 		Button rowButton = new Button();
 		rowButton.Text = "";
-		rowButton.Flat = true;
+		mAccess.styleManager.applyButtonStyle(rowButton, "secondary");
 		rowButton.CustomMinimumSize = new Vector2(150, 54);
 		rowButton.GuiInput += inputEvent => HandleLibraryUnitInput(inputEvent, storedUnit);
 
@@ -299,6 +310,7 @@ public partial class UnitCreatorPanel : Control
 		nameLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 		nameLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		nameLabel.MouseFilter = MouseFilterEnum.Ignore;
+		mAccess.styleManager.applyTextStyle(nameLabel, "default");
 		row.AddChild(nameLabel);
 
 		return rowButton;
@@ -323,7 +335,7 @@ public partial class UnitCreatorPanel : Control
 		preview.OffsetRight = -254;
 		preview.OffsetBottom = -184;
 		MakeInputTransparent(preview);
-		preview.AddThemeStyleboxOverride("panel", CreatePanelStyle(new Color(0.13f, 0.13f, 0.14f, 1f)));
+		mAccess.styleManager.applyPanelStyle(preview, "subtle");
 		previewArea = preview;
 
 		previewLayer = new Control();
@@ -698,31 +710,15 @@ public partial class UnitCreatorPanel : Control
 		PanelContainer panel = new PanelContainer();
 		panel.CustomMinimumSize = minimumSize;
 		panel.MouseFilter = MouseFilterEnum.Stop;
-		panel.AddThemeStyleboxOverride("panel", CreatePanelStyle(new Color(0.20f, 0.20f, 0.21f, 1f)));
+		mAccess.styleManager.applyPanelStyle(panel, "default");
 		return panel;
-	}
-
-	StyleBoxFlat CreatePanelStyle(Color color)
-	{
-		StyleBoxFlat style = new StyleBoxFlat();
-		style.BgColor = color;
-		style.BorderColor = new Color(0.08f, 0.08f, 0.09f, 1f);
-		style.BorderWidthBottom = 1;
-		style.BorderWidthLeft = 1;
-		style.BorderWidthRight = 1;
-		style.BorderWidthTop = 1;
-		style.ContentMarginBottom = 10;
-		style.ContentMarginLeft = 10;
-		style.ContentMarginRight = 10;
-		style.ContentMarginTop = 10;
-		return style;
 	}
 
 	Label CreatePanelTitle(string text)
 	{
 		Label label = new Label();
 		label.Text = text;
-		label.AddThemeFontSizeOverride("font_size", 18);
+		mAccess.styleManager.applyTextStyle(label, "title");
 		return label;
 	}
 
@@ -959,6 +955,7 @@ public partial class UnitCreatorPanel : Control
 		arrow.Text = hasChildren ? (expanded ? "v" : ">") : "";
 		arrow.CustomMinimumSize = new Vector2(24, 24);
 		arrow.Disabled = !hasChildren;
+		mAccess.styleManager.applyButtonStyle(arrow, "secondary");
 		if (toggle != null)
 		{
 			arrow.Pressed += toggle;
@@ -970,28 +967,11 @@ public partial class UnitCreatorPanel : Control
 		label.Alignment = HorizontalAlignment.Left;
 		label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		label.CustomMinimumSize = new Vector2(120, 28);
+		mAccess.styleManager.applyButtonStyle(label, selectedComponentPath == path ? "selected" : "secondary");
 		label.Pressed += () => SelectComponent(path);
-		if (selectedComponentPath == path)
-		{
-			ApplySelectedRowStyle(label);
-		}
 		row.AddChild(label);
 
 		componentsList.AddChild(row);
-	}
-
-	void ApplySelectedRowStyle(Button button)
-	{
-		StyleBoxFlat normal = new StyleBoxFlat();
-		normal.BgColor = new Color(0.34f, 0.44f, 0.56f, 1f);
-		normal.BorderColor = new Color(0.52f, 0.68f, 0.84f, 1f);
-		normal.BorderWidthBottom = 1;
-		normal.BorderWidthLeft = 1;
-		normal.BorderWidthRight = 1;
-		normal.BorderWidthTop = 1;
-		button.AddThemeStyleboxOverride("normal", normal);
-		button.AddThemeStyleboxOverride("hover", normal);
-		button.AddThemeStyleboxOverride("pressed", normal);
 	}
 
 	class PreviewHit

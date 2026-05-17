@@ -4,41 +4,37 @@ using System.Collections.Generic;
 public partial class SettingsWindowContent : VBoxContainer
 {
 	readonly Dictionary<string, string> draftColorNames = new Dictionary<string, string>();
+	readonly Dictionary<string, TextStyle> draftTextStyles = new Dictionary<string, TextStyle>();
 	readonly List<ColorRect> schemePreviewSwatches = new List<ColorRect>();
+	readonly List<Control> fontPreviewControls = new List<Control>();
+	Label pageTitle;
 	Label schemeNameLabel;
+	Label volumeValueLabel;
 	GridContainer savedColorsGrid;
+	Button backButton;
 	Button schemePreviewButton;
+	Control contentHost;
+	SettingsPage currentPage = SettingsPage.Home;
 	int selectedColorSchemeIndex;
+	float draftMasterVolumePercent;
+	bool applyingSettings;
 
 	public SettingsWindowContent()
 	{
-		CustomMinimumSize = new Vector2(420, 320);
+		CustomMinimumSize = new Vector2(640, 460);
 		SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		SizeFlagsVertical = SizeFlags.ExpandFill;
 	}
 
 	public override void _Ready()
 	{
+		StoredGameSettings savedSettings = mAccess.entityFrameworkManager?.LoadGameSettings();
 		selectedColorSchemeIndex = mAccess.styleManager.activeColorSchemeIndex;
+		draftMasterVolumePercent = savedSettings == null ? getMasterVolumePercent() : savedSettings.MasterVolumePercent;
 		setupDraftColors();
-
-		TabContainer tabs = new TabContainer();
-		tabs.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-		tabs.SizeFlagsVertical = SizeFlags.ExpandFill;
-		AddChild(tabs);
-
-		tabs.AddChild(createStylesMenu());
-		tabs.AddChild(createColorsMenu());
-
-		HBoxContainer actions = new HBoxContainer();
-		actions.Alignment = BoxContainer.AlignmentMode.End;
-		AddChild(actions);
-
-		Button saveButton = new Button();
-		saveButton.Text = "Save";
-		saveButton.CustomMinimumSize = new Vector2(86, 30);
-		saveButton.Pressed += saveSettings;
-		actions.AddChild(saveButton);
+		setupDraftTextStyles();
+		buildFrame();
+		showHomeMenu();
 
 		mAccess.colorManager.colorChanged += onColorChanged;
 		mAccess.colorManager.colorLibraryChanged += onColorLibraryChanged;
@@ -58,19 +54,288 @@ public partial class SettingsWindowContent : VBoxContainer
 		}
 	}
 
-	Control createStylesMenu()
+	void buildFrame()
+	{
+		HBoxContainer header = new HBoxContainer();
+		header.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		AddChild(header);
+
+		backButton = createActionButton("Back", "secondary");
+		backButton.CustomMinimumSize = new Vector2(88, 32);
+		backButton.Pressed += showHomeMenu;
+		header.AddChild(backButton);
+
+		pageTitle = new Label();
+		pageTitle.HorizontalAlignment = HorizontalAlignment.Center;
+		pageTitle.VerticalAlignment = VerticalAlignment.Center;
+		pageTitle.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		mAccess.styleManager.applyTextStyle(pageTitle, "accent");
+		header.AddChild(pageTitle);
+
+		Button saveButton = createActionButton("Save", "secondary");
+		saveButton.CustomMinimumSize = new Vector2(88, 32);
+		saveButton.Pressed += saveSettings;
+		header.AddChild(saveButton);
+
+		contentHost = new Control();
+		contentHost.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		contentHost.SizeFlagsVertical = SizeFlags.ExpandFill;
+		AddChild(contentHost);
+	}
+
+	void showHomeMenu()
+	{
+		currentPage = SettingsPage.Home;
+		pageTitle.Text = "Options";
+		backButton.Visible = false;
+		setContent(createHomeMenu());
+	}
+
+	void showSubMenu(SettingsPage page, string title, Control content)
+	{
+		currentPage = page;
+		pageTitle.Text = title;
+		backButton.Visible = true;
+		setContent(content);
+	}
+
+	void setContent(Control content)
+	{
+		foreach (Node child in contentHost.GetChildren())
+		{
+			contentHost.RemoveChild(child);
+			child.QueueFree();
+		}
+
+		content.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		contentHost.AddChild(content);
+	}
+
+	Control createHomeMenu()
 	{
 		VBoxContainer menu = new VBoxContainer();
-		menu.Name = "Styles";
-		menu.CustomMinimumSize = new Vector2(400, 280);
+		menu.AddThemeConstantOverride("separation", 12);
+		menu.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		menu.SizeFlagsVertical = SizeFlags.ExpandFill;
+
+		menu.AddChild(createVolumePanel());
+
+		GridContainer categoryGrid = new GridContainer();
+		categoryGrid.Columns = 2;
+		categoryGrid.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		categoryGrid.SizeFlagsVertical = SizeFlags.ExpandFill;
+		categoryGrid.AddThemeConstantOverride("h_separation", 10);
+		categoryGrid.AddThemeConstantOverride("v_separation", 10);
+		menu.AddChild(categoryGrid);
+
+		categoryGrid.AddChild(createCategoryButton("Audio", () => showSubMenu(SettingsPage.Audio, "Audio", createAudioMenu())));
+		categoryGrid.AddChild(createCategoryButton("Video", () => showSubMenu(SettingsPage.Video, "Video", createVideoMenu())));
+		categoryGrid.AddChild(createCategoryButton("Controls", () => showSubMenu(SettingsPage.Controls, "Controls", createControlsMenu())));
+		categoryGrid.AddChild(createCategoryButton("Appearance", () => showSubMenu(SettingsPage.Appearance, "Appearance", createStylesMenu())));
+		categoryGrid.AddChild(createCategoryButton("Colors", () => showSubMenu(SettingsPage.Colors, "Colors", createColorsMenu())));
+
+		if (shouldShowReturnToMainMenu())
+		{
+			Button returnButton = createActionButton("Return To Main Menu", "secondary");
+			returnButton.CustomMinimumSize = new Vector2(0, 38);
+			returnButton.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+			returnButton.Pressed += returnToMainMenu;
+			menu.AddChild(returnButton);
+		}
+
+		return menu;
+	}
+
+	PanelContainer createVolumePanel()
+	{
+		PanelContainer panel = new PanelContainer();
+		panel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		mAccess.styleManager.applyPanelStyle(panel, "raised");
+
+		MarginContainer margin = new MarginContainer();
+		margin.AddThemeConstantOverride("margin_left", 12);
+		margin.AddThemeConstantOverride("margin_right", 12);
+		margin.AddThemeConstantOverride("margin_top", 10);
+		margin.AddThemeConstantOverride("margin_bottom", 10);
+		panel.AddChild(margin);
+
+		HBoxContainer row = new HBoxContainer();
+		row.AddThemeConstantOverride("separation", 10);
+		margin.AddChild(row);
+
+		Label label = new Label();
+		label.Text = "Master Volume";
+		label.CustomMinimumSize = new Vector2(130, 0);
+		label.VerticalAlignment = VerticalAlignment.Center;
+		mAccess.styleManager.applyTextStyle(label, "default");
+		row.AddChild(label);
+
+		HSlider slider = new HSlider();
+		slider.MinValue = 0;
+		slider.MaxValue = 100;
+		slider.Step = 1;
+		slider.Value = draftMasterVolumePercent;
+		slider.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		slider.ValueChanged += value => setDraftMasterVolume((float)value);
+		row.AddChild(slider);
+
+		volumeValueLabel = new Label();
+		volumeValueLabel.Text = Mathf.RoundToInt(draftMasterVolumePercent) + "%";
+		volumeValueLabel.CustomMinimumSize = new Vector2(48, 0);
+		volumeValueLabel.HorizontalAlignment = HorizontalAlignment.Right;
+		volumeValueLabel.VerticalAlignment = VerticalAlignment.Center;
+		mAccess.styleManager.applyTextStyle(volumeValueLabel, "muted");
+		row.AddChild(volumeValueLabel);
+
+		return panel;
+	}
+
+	Button createCategoryButton(string text, System.Action pressed)
+	{
+		Button button = createActionButton(text, "menu");
+		button.CustomMinimumSize = new Vector2(0, 70);
+		button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		button.SizeFlagsVertical = SizeFlags.ExpandFill;
+		button.Pressed += pressed;
+		return button;
+	}
+
+	Button createActionButton(string text, string styleName)
+	{
+		Button button = new Button();
+		button.Text = text;
+		mAccess.styleManager.applyButtonStyle(button, styleName);
+		return button;
+	}
+
+	bool shouldShowReturnToMainMenu()
+	{
+		return mAccess.sceneManager?.gameStates != null && mAccess.sceneManager.gameStates.GetState() != "menu";
+	}
+
+	void returnToMainMenu()
+	{
+		mAccess.windowManager.closeWindow("Settings", false);
+		mAccess.sceneManager.startMenu();
+	}
+
+	Control createAudioMenu()
+	{
+		VBoxContainer menu = new VBoxContainer();
+		menu.AddThemeConstantOverride("separation", 12);
+		menu.AddChild(createVolumePanel());
+		return menu;
+	}
+
+	Control createVideoMenu()
+	{
+		VBoxContainer menu = new VBoxContainer();
+		menu.AddThemeConstantOverride("separation", 8);
+		menu.AddChild(createReadOnlySettingRow("Window Mode", "Windowed"));
+		menu.AddChild(createReadOnlySettingRow("Resolution", getResolutionText()));
+		return menu;
+	}
+
+	Control createControlsMenu()
+	{
+		ScrollContainer scroll = new ScrollContainer();
+		VBoxContainer menu = new VBoxContainer();
+		menu.AddThemeConstantOverride("separation", 8);
+		scroll.AddChild(menu);
+
+		foreach (StringName actionName in InputMap.GetActions())
+		{
+			if (actionName.ToString().StartsWith("ui_"))
+			{
+				continue;
+			}
+			menu.AddChild(createInputActionRow(actionName));
+		}
+
+		return scroll;
+	}
+
+	Control createInputActionRow(StringName actionName)
+	{
+		return createReadOnlySettingRow(actionName.ToString(), getActionBindText(actionName));
+	}
+
+	Control createReadOnlySettingRow(string settingName, string settingValue)
+	{
+		PanelContainer panel = new PanelContainer();
+		panel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		mAccess.styleManager.applyPanelStyle(panel, "subtle");
+
+		MarginContainer margin = new MarginContainer();
+		margin.AddThemeConstantOverride("margin_left", 10);
+		margin.AddThemeConstantOverride("margin_right", 10);
+		margin.AddThemeConstantOverride("margin_top", 6);
+		margin.AddThemeConstantOverride("margin_bottom", 6);
+		panel.AddChild(margin);
+
+		HBoxContainer row = new HBoxContainer();
+		margin.AddChild(row);
+
+		Label name = new Label();
+		name.Text = settingName;
+		name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		mAccess.styleManager.applyTextStyle(name, "default");
+		row.AddChild(name);
+
+		Label bind = new Label();
+		bind.Text = settingValue;
+		bind.HorizontalAlignment = HorizontalAlignment.Right;
+		mAccess.styleManager.applyTextStyle(bind, "muted");
+		row.AddChild(bind);
+
+		return panel;
+	}
+
+	string getResolutionText()
+	{
+		Vector2 size = GetViewport().GetVisibleRect().Size;
+		return Mathf.RoundToInt(size.X) + " x " + Mathf.RoundToInt(size.Y);
+	}
+
+	string getActionBindText(StringName actionName)
+	{
+		Godot.Collections.Array<InputEvent> events = InputMap.ActionGetEvents(actionName);
+		if (events.Count == 0)
+		{
+			return "Unbound";
+		}
+
+		return events[0].AsText();
+	}
+
+	Label createSectionLabel(string text)
+	{
+		Label label = new Label();
+		label.Text = text;
+		label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+		mAccess.styleManager.applyTextStyle(label, "muted");
+		return label;
+	}
+
+	Control createStylesMenu()
+	{
+		ScrollContainer scroll = new ScrollContainer();
+		scroll.CustomMinimumSize = new Vector2(560, 340);
+		scroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		scroll.SizeFlagsVertical = SizeFlags.ExpandFill;
+
+		VBoxContainer menu = new VBoxContainer();
+		menu.AddThemeConstantOverride("separation", 12);
+		menu.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		menu.SizeFlagsVertical = SizeFlags.ExpandFill;
+		scroll.AddChild(menu);
 
 		Label title = new Label();
 		title.Text = "Color Scheme";
 		mAccess.styleManager.applyTextStyle(title, "default");
 		menu.AddChild(title);
 
-		schemePreviewButton = new Button();
-		schemePreviewButton.Text = "";
+		schemePreviewButton = createActionButton("", "menu");
 		schemePreviewButton.CustomMinimumSize = new Vector2(390, 78);
 		schemePreviewButton.Pressed += openColorSchemeList;
 		menu.AddChild(schemePreviewButton);
@@ -103,6 +368,7 @@ public partial class SettingsWindowContent : VBoxContainer
 		previewColors.MouseFilter = Control.MouseFilterEnum.Ignore;
 		row.AddChild(previewColors);
 
+		schemePreviewSwatches.Clear();
 		foreach (string colorName in mAccess.styleManager.colorSchemeColorNames)
 		{
 			string draftColorName = draftColorNames[colorName];
@@ -115,18 +381,204 @@ public partial class SettingsWindowContent : VBoxContainer
 			previewColors.AddChild(swatch);
 		}
 
-		return menu;
+		menu.AddChild(createFontPresetSection());
+
+		return scroll;
+	}
+
+	Control createFontPresetSection()
+	{
+		VBoxContainer section = new VBoxContainer();
+		section.AddThemeConstantOverride("separation", 8);
+		section.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		section.SizeFlagsVertical = SizeFlags.ExpandFill;
+
+		Label title = new Label();
+		title.Text = "Font Presets";
+		mAccess.styleManager.applyTextStyle(title, "default");
+		section.AddChild(title);
+
+		fontPreviewControls.Clear();
+		foreach (KeyValuePair<string, TextStyle> draftStyle in draftTextStyles)
+		{
+			section.AddChild(createFontPresetEditor(draftStyle.Key, draftStyle.Value));
+		}
+
+		return section;
+	}
+
+	Control createFontPresetEditor(string presetName, TextStyle draftStyle)
+	{
+		PanelContainer panel = new PanelContainer();
+		panel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		panel.SizeFlagsVertical = SizeFlags.ExpandFill;
+		mAccess.styleManager.applyPanelStyle(panel, "subtle");
+
+		MarginContainer margin = new MarginContainer();
+		margin.AddThemeConstantOverride("margin_left", 10);
+		margin.AddThemeConstantOverride("margin_right", 10);
+		margin.AddThemeConstantOverride("margin_top", 8);
+		margin.AddThemeConstantOverride("margin_bottom", 8);
+		panel.AddChild(margin);
+
+		VBoxContainer layout = new VBoxContainer();
+		layout.AddThemeConstantOverride("separation", 6);
+		margin.AddChild(layout);
+
+		HBoxContainer topRow = new HBoxContainer();
+		topRow.AddThemeConstantOverride("separation", 8);
+		layout.AddChild(topRow);
+
+		Label nameLabel = new Label();
+		nameLabel.Text = presetName;
+		nameLabel.CustomMinimumSize = new Vector2(110, 0);
+		nameLabel.VerticalAlignment = VerticalAlignment.Center;
+		mAccess.styleManager.applyTextStyle(nameLabel, "default");
+		topRow.AddChild(nameLabel);
+
+		Button fontButton = createActionButton(draftStyle.fontName, "secondary");
+		fontButton.CustomMinimumSize = new Vector2(250, 34);
+		fontButton.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		applyFontPreview(fontButton, draftStyle.fontName);
+		fontButton.Pressed += () => openFontDropdown(presetName, fontButton);
+		topRow.AddChild(fontButton);
+
+		SpinBox sizeInput = new SpinBox();
+		sizeInput.MinValue = 8;
+		sizeInput.MaxValue = 40;
+		sizeInput.Step = 1;
+		sizeInput.Value = draftStyle.fontSize;
+		sizeInput.CustomMinimumSize = new Vector2(82, 0);
+		sizeInput.ValueChanged += value =>
+		{
+			draftStyle.fontSize = Mathf.RoundToInt((float)value);
+			refreshFontPreviews();
+		};
+		topRow.AddChild(sizeInput);
+
+		HBoxContainer toggles = new HBoxContainer();
+		toggles.AddThemeConstantOverride("separation", 8);
+		topRow.AddChild(toggles);
+
+		toggles.AddChild(createStyleToggle("B", "Bold", new TextStyle(draftStyle.colorName, draftStyle.hoverColorName, draftStyle.pressedColorName, draftStyle.disabledColorName, draftStyle.fontSize, draftStyle.fontName, true, false, false), draftStyle.bold, value =>
+		{
+			draftStyle.bold = value;
+			refreshFontPreviews();
+		}));
+		toggles.AddChild(createStyleToggle("I", "Italic", new TextStyle(draftStyle.colorName, draftStyle.hoverColorName, draftStyle.pressedColorName, draftStyle.disabledColorName, draftStyle.fontSize, draftStyle.fontName, false, true, false), draftStyle.italic, value =>
+		{
+			draftStyle.italic = value;
+			refreshFontPreviews();
+		}));
+		toggles.AddChild(createStyleToggle("U", "Underline", new TextStyle(draftStyle.colorName, draftStyle.hoverColorName, draftStyle.pressedColorName, draftStyle.disabledColorName, draftStyle.fontSize, draftStyle.fontName, false, false, true), draftStyle.underline, value =>
+		{
+			draftStyle.underline = value;
+			refreshFontPreviews();
+		}));
+
+		Label preview = new Label();
+		preview.Text = "Preview: The quick settings menu";
+		preview.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+		preview.SetMeta("settingsDraftTextStyle", presetName);
+		fontPreviewControls.Add(preview);
+		applyDraftTextStyle(preview, draftStyle);
+		layout.AddChild(preview);
+
+		return panel;
+	}
+
+	Button createStyleToggle(string label, string tooltip, TextStyle previewStyle, bool value, System.Action<bool> changed)
+	{
+		Button toggle = createActionButton(label, value ? "selected" : "secondary");
+		toggle.ToggleMode = true;
+		toggle.Text = label;
+		toggle.TooltipText = tooltip;
+		toggle.ButtonPressed = value;
+		toggle.CustomMinimumSize = new Vector2(38, 34);
+		applyDraftTextStyle(toggle, previewStyle);
+		toggle.Toggled += toggledOn =>
+		{
+			mAccess.styleManager.applyButtonStyle(toggle, toggledOn ? "selected" : "secondary");
+			applyDraftTextStyle(toggle, previewStyle);
+			changed(toggledOn);
+		};
+		return toggle;
+	}
+
+	void openFontDropdown(string presetName, Button anchor)
+	{
+		VBoxContainer list = new VBoxContainer();
+		list.CustomMinimumSize = new Vector2(260, 0);
+		foreach (string fontName in mAccess.styleManager.fontNames)
+		{
+			Button option = createActionButton(fontName, "secondary");
+			option.CustomMinimumSize = new Vector2(240, 34);
+			option.Alignment = HorizontalAlignment.Left;
+			applyFontPreview(option, fontName);
+			option.Pressed += () =>
+			{
+				draftTextStyles[presetName].fontName = fontName;
+				mAccess.windowManager.closeWindow("Font Dropdown", false);
+				showSubMenu(SettingsPage.Appearance, "Appearance", createStylesMenu());
+			};
+			list.AddChild(option);
+		}
+
+		Vector2 position = new Vector2(anchor.GlobalPosition.X, anchor.GlobalPosition.Y + anchor.Size.Y + 6f);
+		mAccess.windowManager.openWindowAt("Font Dropdown", list, position, "closeButtonTransparentTopbar", false);
+	}
+
+	void applyFontPreview(Control control, string fontName)
+	{
+		Font font = mAccess.styleManager.getFont(fontName);
+		if (font != null)
+		{
+			control.AddThemeFontOverride("font", font);
+		}
+	}
+
+	void applyDraftTextStyle(Control control, TextStyle style)
+	{
+		Font font = mAccess.styleManager.getStyledFont(style);
+		if (font != null)
+		{
+			control.AddThemeFontOverride("font", font);
+		}
+		control.AddThemeColorOverride("font_color", mAccess.colorManager.getColor(style.colorName));
+		control.AddThemeColorOverride("font_hover_color", mAccess.colorManager.getColor(style.hoverColorName));
+		control.AddThemeColorOverride("font_pressed_color", mAccess.colorManager.getColor(style.pressedColorName));
+		control.AddThemeColorOverride("font_disabled_color", mAccess.colorManager.getColor(style.disabledColorName));
+		control.AddThemeFontSizeOverride("font_size", style.fontSize);
+		mAccess.styleManager.applyUnderlineStyle(control, style.underline, mAccess.colorManager.getColor(style.colorName));
+	}
+
+	void refreshFontPreviews()
+	{
+		foreach (Control preview in fontPreviewControls)
+		{
+			if (!GodotObject.IsInstanceValid(preview) || !preview.HasMeta("settingsDraftTextStyle"))
+			{
+				continue;
+			}
+
+			string presetName = preview.GetMeta("settingsDraftTextStyle", "").AsString();
+			if (draftTextStyles.ContainsKey(presetName))
+			{
+				applyDraftTextStyle(preview, draftTextStyles[presetName]);
+			}
+		}
 	}
 
 	Control createColorsMenu()
 	{
 		ScrollContainer scroll = new ScrollContainer();
-		scroll.Name = "Colors";
 		scroll.CustomMinimumSize = new Vector2(400, 280);
 
 		savedColorsGrid = new GridContainer();
 		savedColorsGrid.Columns = 4;
 		savedColorsGrid.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		savedColorsGrid.AddThemeConstantOverride("h_separation", 8);
+		savedColorsGrid.AddThemeConstantOverride("v_separation", 8);
 		scroll.AddChild(savedColorsGrid);
 
 		rebuildColorsMenu();
@@ -172,8 +624,7 @@ public partial class SettingsWindowContent : VBoxContainer
 	Button createColorSchemeRow(int schemeIndex)
 	{
 		ColorScheme scheme = mAccess.styleManager.colorSchemes[schemeIndex];
-		Button rowButton = new Button();
-		rowButton.Text = "";
+		Button rowButton = createActionButton("", "menu");
 		rowButton.CustomMinimumSize = new Vector2(280, 54);
 		rowButton.Pressed += () => selectColorScheme(schemeIndex);
 
@@ -225,6 +676,29 @@ public partial class SettingsWindowContent : VBoxContainer
 		mAccess.windowManager.closeWindow("Color Schemes", false);
 	}
 
+	void setDraftMasterVolume(float value)
+	{
+		draftMasterVolumePercent = Mathf.Clamp(value, 0f, 100f);
+		if (volumeValueLabel != null)
+		{
+			volumeValueLabel.Text = Mathf.RoundToInt(draftMasterVolumePercent) + "%";
+		}
+	}
+
+	float getMasterVolumePercent()
+	{
+		int busIndex = AudioServer.GetBusIndex("Master");
+		float volumeDb = AudioServer.GetBusVolumeDb(busIndex);
+		return Mathf.Clamp(Mathf.DbToLinear(volumeDb) * 100f, 0f, 100f);
+	}
+
+	void applyMasterVolume()
+	{
+		int busIndex = AudioServer.GetBusIndex("Master");
+		float linearVolume = Mathf.Max(draftMasterVolumePercent / 100f, 0.0001f);
+		AudioServer.SetBusVolumeDb(busIndex, Mathf.LinearToDb(linearVolume));
+	}
+
 	void refreshColorSchemeUi()
 	{
 		if (schemeNameLabel != null)
@@ -249,8 +723,20 @@ public partial class SettingsWindowContent : VBoxContainer
 
 	void onStyleChanged(object sender, System.EventArgs e)
 	{
+		if (applyingSettings)
+		{
+			return;
+		}
+
 		setupDraftColors();
-		refreshColorSchemeUi();
+		if (currentPage == SettingsPage.Home)
+		{
+			showHomeMenu();
+		}
+		else
+		{
+			refreshColorSchemeUi();
+		}
 	}
 
 	void onColorLibraryChanged(object sender, System.EventArgs e)
@@ -288,35 +774,62 @@ public partial class SettingsWindowContent : VBoxContainer
 		}
 	}
 
+	void setupDraftTextStyles()
+	{
+		draftTextStyles.Clear();
+		foreach (KeyValuePair<string, TextStyle> textStyle in mAccess.styleManager.textStyles)
+		{
+			draftTextStyles[textStyle.Key] = textStyle.Value.Clone();
+		}
+	}
+
 	void saveSettings()
 	{
 		mAccess.styleManager.activeColorSchemeIndex = selectedColorSchemeIndex;
+		Dictionary<string, Color> colorsToSave = new Dictionary<string, Color>();
 		foreach (string colorName in mAccess.styleManager.colorSchemeColorNames)
 		{
-			mAccess.colorManager.updateColor(colorName, mAccess.colorManager.getColor(draftColorNames[colorName]));
+			colorsToSave[colorName] = mAccess.colorManager.getColor(draftColorNames[colorName]);
 		}
+
+		applyingSettings = true;
+		foreach (KeyValuePair<string, Color> colorToSave in colorsToSave)
+		{
+			mAccess.colorManager.updateColor(colorToSave.Key, colorToSave.Value);
+		}
+		foreach (KeyValuePair<string, TextStyle> draftTextStyle in draftTextStyles)
+		{
+			if (mAccess.styleManager.textStyles.ContainsKey(draftTextStyle.Key))
+			{
+				mAccess.styleManager.textStyles[draftTextStyle.Key].CopyFrom(draftTextStyle.Value);
+			}
+			else
+			{
+				mAccess.styleManager.textStyles[draftTextStyle.Key] = draftTextStyle.Value.Clone();
+			}
+		}
+		mAccess.styleManager.refreshTextStyles();
+		applyingSettings = false;
+		mAccess.entityFrameworkManager?.SaveGameSettings(mAccess.styleManager.createStoredGameSettings(draftMasterVolumePercent));
+		setupDraftColors();
+		setupDraftTextStyles();
+		refreshColorSchemeUi();
+		refreshFontPreviews();
+		applyMasterVolume();
 	}
 
 	void setButtonColor(Button button, Color color)
 	{
-		button.AddThemeStyleboxOverride("normal", createSwatchStyle(color));
-		button.AddThemeStyleboxOverride("hover", createSwatchStyle(color.Lightened(0.15f)));
-		button.AddThemeStyleboxOverride("pressed", createSwatchStyle(color.Darkened(0.15f)));
+		mAccess.styleManager.applySwatchStyle(button, color);
 	}
+}
 
-	StyleBoxFlat createSwatchStyle(Color color)
-	{
-		StyleBoxFlat style = new StyleBoxFlat();
-		style.BgColor = color;
-		style.BorderColor = new Color(0.05f, 0.05f, 0.05f, 1f);
-		style.BorderWidthBottom = 2;
-		style.BorderWidthLeft = 2;
-		style.BorderWidthRight = 2;
-		style.BorderWidthTop = 2;
-		style.CornerRadiusBottomLeft = 4;
-		style.CornerRadiusBottomRight = 4;
-		style.CornerRadiusTopLeft = 4;
-		style.CornerRadiusTopRight = 4;
-		return style;
-	}
+public enum SettingsPage
+{
+	Home,
+	Audio,
+	Video,
+	Controls,
+	Appearance,
+	Colors
 }

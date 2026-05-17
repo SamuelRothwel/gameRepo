@@ -63,12 +63,14 @@ public partial class ColorPicker : Control
         Button saveButton = new Button();
         saveButton.Text = "Save";
         saveButton.CustomMinimumSize = new Vector2(86, 30);
+        mAccess.styleManager.applyButtonStyle(saveButton, "secondary");
         saveButton.Pressed += saveColor;
         actionBar.AddChild(saveButton);
 
         expandButton = new Button();
         expandButton.Text = "All";
         expandButton.CustomMinimumSize = new Vector2(86, 30);
+        mAccess.styleManager.applyButtonStyle(expandButton, "secondary");
         expandButton.Pressed += toggleSavedColors;
         actionBar.AddChild(expandButton);
 
@@ -270,6 +272,7 @@ public partial class ColorPicker : Control
         savedColorsPanel = new PanelContainer();
         savedColorsPanel.Visible = false;
         savedColorsPanel.CustomMinimumSize = new Vector2(180, 180);
+        mAccess.styleManager.applyPanelStyle(savedColorsPanel, "default");
         (GetParent() ?? this).AddChild(savedColorsPanel);
 
         savedColorMenu = new GridContainer();
@@ -310,21 +313,7 @@ public partial class ColorPicker : Control
 
     void setButtonColor(Button button, Color color)
     {
-        button.AddThemeStyleboxOverride("normal", createSwatchStyle(color));
-        button.AddThemeStyleboxOverride("hover", createSwatchStyle(color.Lightened(0.15f)));
-        button.AddThemeStyleboxOverride("pressed", createSwatchStyle(color.Darkened(0.15f)));
-    }
-
-    StyleBoxFlat createSwatchStyle(Color color)
-    {
-        StyleBoxFlat style = new StyleBoxFlat();
-        style.BgColor = color;
-        style.BorderColor = new Color(0.05f, 0.05f, 0.05f, 1f);
-        style.BorderWidthBottom = 2;
-        style.BorderWidthLeft = 2;
-        style.BorderWidthRight = 2;
-        style.BorderWidthTop = 2;
-        return style;
+        mAccess.styleManager.applySwatchStyle(button, color);
     }
 
     public void openForColor(string colorName)

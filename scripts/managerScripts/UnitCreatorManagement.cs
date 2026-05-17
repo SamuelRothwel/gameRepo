@@ -103,6 +103,7 @@ public partial class UnitCreatorManagement : managerNode
 		{
 			Label emptyLabel = new Label();
 			emptyLabel.Text = "No saved sprites";
+			mAccess.styleManager.applyTextStyle(emptyLabel, "muted");
 			savedSpritesList.AddChild(emptyLabel);
 			return scroll;
 		}
@@ -129,6 +130,7 @@ public partial class UnitCreatorManagement : managerNode
 		{
 			Label emptyLabel = new Label();
 			emptyLabel.Text = "No saved units";
+			mAccess.styleManager.applyTextStyle(emptyLabel, "muted");
 			savedUnitsList.AddChild(emptyLabel);
 			return scroll;
 		}
@@ -145,7 +147,7 @@ public partial class UnitCreatorManagement : managerNode
 	{
 		Button rowButton = new Button();
 		rowButton.Text = "";
-		rowButton.Flat = true;
+		mAccess.styleManager.applyButtonStyle(rowButton, "secondary");
 		rowButton.CustomMinimumSize = new Vector2(130, 58);
 		rowButton.Pressed += () =>
 		{
@@ -174,6 +176,7 @@ public partial class UnitCreatorManagement : managerNode
 		nameLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 		nameLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		nameLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
+		mAccess.styleManager.applyTextStyle(nameLabel, "default");
 		row.AddChild(nameLabel);
 
 		return rowButton;
@@ -263,7 +266,7 @@ public partial class UnitCreatorManagement : managerNode
 	{
 		Button rowButton = new Button();
 		rowButton.Text = "";
-		rowButton.Flat = true;
+		mAccess.styleManager.applyButtonStyle(rowButton, "secondary");
 		rowButton.CustomMinimumSize = new Vector2(130, 58);
 		rowButton.Pressed += () =>
 		{
@@ -292,6 +295,7 @@ public partial class UnitCreatorManagement : managerNode
 		nameLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 		nameLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		nameLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
+		mAccess.styleManager.applyTextStyle(nameLabel, "default");
 		row.AddChild(nameLabel);
 
 		return rowButton;
