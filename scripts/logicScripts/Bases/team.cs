@@ -11,6 +11,10 @@ public class team
         name = "";
         enemies = new team[0];
         allies = new List<team>();
+        BVH = new treeBinary<(Guid, (float, float, float, float))>();
+        detectorBVH = new treeBinary<(Guid, (float, float, float, float))>();
+        targetBVH = new treeBinary<(Guid, (float, float, float, float))>();
+        visibleEnemies = new List<Guid>();
     }
     public string name;
     public team[] enemies;

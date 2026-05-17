@@ -29,13 +29,6 @@ public partial class SandboxScene : Node2D
 		foreach (Guid id in spawnedUnitIds)
 		{
 			mAccess.unitManager?.remove(id);
-			if (mAccess.teamManager?.teams != null)
-			{
-				foreach (team team in mAccess.teamManager.teams)
-				{
-					team.units.Remove(id);
-				}
-			}
 		}
 		foreach (Node node in spawnedNodes)
 		{
@@ -342,13 +335,6 @@ public partial class SandboxScene : Node2D
 		foreach (Guid id in spawnedUnitIds)
 		{
 			mAccess.unitManager?.remove(id);
-			if (mAccess.teamManager?.teams != null)
-			{
-				foreach (team team in mAccess.teamManager.teams)
-				{
-					team.units.Remove(id);
-				}
-			}
 		}
 		foreach (Node node in spawnedNodes)
 		{

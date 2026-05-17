@@ -1,44 +1,82 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Net;
-using System.Net.Http.Headers;
-using System.Numerics;
-using System.Security.Permissions;
-using System.Text;
-using System.Threading.Tasks;
-using coolbeats.scripts.logicScripts.Bases;
 using coolbeats.scripts.staticScriptsAndDataStructures;
 using Godot;
-using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 
 namespace coolbeats.scripts.managerScripts
 {
     public partial class TeamManagement : managerNode
     {
         public team[] teams;
+        readonly Dictionary<Guid, int> unitTeams = new Dictionary<Guid, int>();
+
         public override void setup()
         {
-            teams = new team[] {new team(), new team()};
-            teams[0].enemies = new team[] {teams[1]};
-            teams[1].enemies = new team[] {teams[0]};
+            unitTeams.Clear();
+            teams = new team[] { new team(), new team() };
+            setEnemies(0, 1);
+            setEnemies(1, 0);
         }
+
+        void setEnemies(int teamIndex, params int[] enemyIndexes)
+        {
+            teams[teamIndex].enemies = enemyIndexes.Select(index => teams[index]).ToArray();
+        }
+
         public team GetTeam(Guid ID)
         {
-            for (int i = 0; i < teams.Count(); i++)
+            if (unitTeams.TryGetValue(ID, out int teamIndex) && isValidTeamIndex(teamIndex) && teams[teamIndex].units.Contains(ID))
+            {
+                return teams[teamIndex];
+            }
+
+            for (int i = 0; i < teams.Length; i++)
             {
                 if (teams[i].units.Contains(ID))
                 {
+                    unitTeams[ID] = i;
                     return teams[i];
                 }
-            }        
+            }
+
             throw new Exception(ID.ToString() + " not assigned to team");
         }
-        public void addUnit(Guid ID, int team)
+
+        public void addUnit(Guid ID, int teamIndex)
         {
-            teams[team].units.Add(ID);
+            if (!isValidTeamIndex(teamIndex))
+            {
+                throw new ArgumentOutOfRangeException(nameof(teamIndex), "Invalid team index " + teamIndex);
+            }
+
+            removeUnit(ID);
+            teams[teamIndex].units.Add(ID);
+            unitTeams[ID] = teamIndex;
         }
+
+        public void removeUnit(Guid ID)
+        {
+            if (unitTeams.TryGetValue(ID, out int teamIndex) && isValidTeamIndex(teamIndex))
+            {
+                teams[teamIndex].units.Remove(ID);
+            }
+            else
+            {
+                foreach (team t in teams)
+                {
+                    t.units.Remove(ID);
+                }
+            }
+
+            unitTeams.Remove(ID);
+        }
+
+        bool isValidTeamIndex(int teamIndex)
+        {
+            return teamIndex >= 0 && teamIndex < teams.Length;
+        }
+
         public override void _Process(double delta)
         {
             if (mAccess.sceneManager?.gameStates?["gameActive"] == true)
@@ -46,195 +84,235 @@ namespace coolbeats.scripts.managerScripts
                 UpdateTeamVisions();
             }
         }
+
         public void UpdateTeamVisions()
         {
-            for (int i = 0; i < teams.Length; i ++)
+            for (int i = 0; i < teams.Length; i++)
             {
                 team t = teams[i];
                 Guid[] encodings = createEncodings(t.units);
-                t.BVH = createBVH(ref encodings);
-                t.detectorBVH = createBVH(ref encodings, true);
+                t.BVH = createBVH(encodings);
+                t.detectorBVH = createBVH(encodings, true);
             }
-            for (int i = 0; i < teams.Length; i ++)
+
+            for (int i = 0; i < teams.Length; i++)
             {
                 team t = teams[i];
-                t.visibleEnemies = new List<Guid>();
-                for (int j = 0; j < teams[i].enemies.Length; j++)
+                HashSet<Guid> visibleEnemies = new HashSet<Guid>();
+                for (int j = 0; j < t.enemies.Length; j++)
                 {
-                    List<Guid> output = new List<Guid>();
-                    splitTwinTraversal(
-                        t.enemies[j].BVH, 
-                        t.detectorBVH, ref output);
-                    t.visibleEnemies.AddRange(output);
+                    collectVisibleTargets(t.enemies[j].BVH, t.detectorBVH, visibleEnemies);
                 }
+
+                t.visibleEnemies = visibleEnemies.ToList();
                 Guid[] encodings = createEncodings(t.visibleEnemies);
-                t.targetBVH = createBVH(ref encodings);
+                t.targetBVH = createBVH(encodings);
             }
         }
-        public void splitTwinTraversal(treeBinary<(Guid, (float, float, float, float))> Tree1, treeBinary<(Guid, (float, float, float, float))> Tree2, ref List<Guid> output)
+
+        public void splitTwinTraversal(treeBinary<(Guid, (float, float, float, float))> tree1, treeBinary<(Guid, (float, float, float, float))> tree2, ref List<Guid> output)
         {
-            Dictionary<string, treeBinary<(Guid, (float, float, float, float))>> lookUp = new Dictionary<string, treeBinary<(Guid, (float, float, float, float))>>();
-            Queue<(treeBinary<(Guid, (float, float, float, float))>, List<string>)> current = new Queue<(treeBinary<(Guid, (float, float, float, float))>, List<string>)>();
-            lookUp[""] = Tree2;
-            current.Enqueue((Tree1, new List<string>() {""}));
-            while (current.Any())
-            {
-                var cur = current.Dequeue();
-                List<string> newKeys = new List<string>();
-                bool end = false;
-                foreach (string s in cur.Item2)
-                {
-                    treeBinary<(Guid, (float, float, float, float))> branch = lookUp[s];
-                    if (inBounds(branch.Value.Item2, cur.Item1.Value.Item2))
-                    {
-                        if (branch.Value.Item1 == Guid.Empty)
-                        {
-                            string key = s + "1";
-                            newKeys.Add(key);
-                            lookUp[key] = branch.left;
-                            key = s + "2";
-                            newKeys.Add(key);
-                            lookUp[key] = branch.right;
-                        }
-                        else
-                        {
-                            end = true;
-                            newKeys.Add(s);
-                        }
-                    }
-                }
-                if (newKeys.Any())
-                {
-                    if (cur.Item1.Value.Item1 == Guid.Empty)
-                    {
-                        current.Enqueue((cur.Item1.left, newKeys));
-                        current.Enqueue((cur.Item1.right, newKeys));
-                    }
-                    else
-                    {
-                        if (end)
-                        {
-                            output.Add(cur.Item1.Value.Item1);
-                        }
-                        else
-                        {
-                            current.Enqueue((cur.Item1, newKeys));
-                        }
-                    }
-                }
-            }
+            HashSet<Guid> visibleTargets = new HashSet<Guid>(output);
+            collectVisibleTargets(tree1, tree2, visibleTargets);
+            output.Clear();
+            output.AddRange(visibleTargets);
         }
-        public List<Guid> searchTeams(team[] t, (float, float, float, float) minMax)
+
+        void collectVisibleTargets(treeBinary<(Guid, (float, float, float, float))> targetTree, treeBinary<(Guid, (float, float, float, float))> detectorTree, HashSet<Guid> output)
+        {
+            if (isEmptyTree(targetTree) || isEmptyTree(detectorTree) || !inBounds(targetTree.Value.Item2, detectorTree.Value.Item2))
+            {
+                return;
+            }
+
+            bool targetLeaf = isLeaf(targetTree);
+            bool detectorLeaf = isLeaf(detectorTree);
+            if (targetLeaf && detectorLeaf)
+            {
+                output.Add(targetTree.Value.Item1);
+                return;
+            }
+
+            if (targetLeaf)
+            {
+                collectVisibleTargets(targetTree, detectorTree.left, output);
+                collectVisibleTargets(targetTree, detectorTree.right, output);
+                return;
+            }
+
+            if (detectorLeaf)
+            {
+                collectVisibleTargets(targetTree.left, detectorTree, output);
+                collectVisibleTargets(targetTree.right, detectorTree, output);
+                return;
+            }
+
+            collectVisibleTargets(targetTree.left, detectorTree.left, output);
+            collectVisibleTargets(targetTree.left, detectorTree.right, output);
+            collectVisibleTargets(targetTree.right, detectorTree.left, output);
+            collectVisibleTargets(targetTree.right, detectorTree.right, output);
+        }
+
+        public List<Guid> searchTeams(team[] teamsToSearch, (float, float, float, float) minMax)
         {
             List<Guid> units = new List<Guid>();
-            foreach (team enemy in t)
+            foreach (team t in teamsToSearch)
             {
-                searchBVH(enemy.BVH, ref units, minMax);
+                searchBVH(t.BVH, ref units, minMax);
             }
             return units;
         }
+
         public List<Guid> searchBVH(treeBinary<(Guid, (float, float, float, float))> BVH, (float, float, float, float) minMax)
         {
             List<Guid> output = new List<Guid>();
             searchBVH(BVH, ref output, minMax);
             return output;
         }
+
         public void searchBVH(treeBinary<(Guid, (float, float, float, float))> pair, ref List<Guid> output, (float, float, float, float) minMax)
         {
-            if (inBounds(minMax, pair.Value.Item2))
+            if (isEmptyTree(pair) || !inBounds(minMax, pair.Value.Item2))
             {
-                if (pair.Value.Item1 != Guid.Empty)
-                {
-                    output.Add(pair.Value.Item1);
-                } 
-                else if (pair.left != null)
-                {
-                    searchBVH(pair.left, ref output, minMax);
-                    searchBVH(pair.right, ref output, minMax);
-                }
+                return;
             }
+
+            if (isLeaf(pair))
+            {
+                output.Add(pair.Value.Item1);
+                return;
+            }
+
+            searchBVH(pair.left, ref output, minMax);
+            searchBVH(pair.right, ref output, minMax);
         }
+
         public Guid[] createEncodings(IEnumerable<Guid> unitList)
         {
             List<(uint, Guid)> encodings = new List<(uint, Guid)>();
-            foreach (Guid u in unitList)
+            foreach (Guid id in unitList.ToArray())
             {
-                unitControler unit = mAccess.unitManager.units[u];
+                if (!mAccess.unitManager.units.TryGetValue(id, out unitControler unit) || !GodotObject.IsInstanceValid(unit))
+                {
+                    removeUnit(id);
+                    continue;
+                }
+
                 encodings.Add((MortenEncoding.encode((uint)unit.Position.X, (uint)unit.Position.Y), unit.ID));
             }
-            return encodings.OrderBy(x => x.Item1).Select(x => x.Item2).Distinct().ToArray();
+
+            return encodings.OrderBy(encoding => encoding.Item1).Select(encoding => encoding.Item2).Distinct().ToArray();
         }
-        
-        public treeBinary<(Guid, (float, float, float, float))> createBVH(ref Guid[] list, bool detectors = false)
+
+        public treeBinary<(Guid, (float, float, float, float))> createBVH(Guid[] list, bool detectors = false)
         {
-            if (list.Count() != 0)
+            if (list.Length == 0)
             {
-                return recursiveBVH(ref list, 0, list.Count() - 1, detectors);
+                return new treeBinary<(Guid, (float, float, float, float))>();
             }
-            return new treeBinary<(Guid, (float, float, float, float))>();
+
+            return recursiveBVH(list, 0, list.Length - 1, detectors);
         }
-        public treeBinary<(Guid, (float, float, float, float))> recursiveBVH(ref Guid[] list, int start, int end, bool detectors)
+
+        public treeBinary<(Guid, (float, float, float, float))> recursiveBVH(Guid[] list, int start, int end, bool detectors)
         {
-            treeBinary<(Guid, (float, float, float, float))> Tree = new treeBinary<(Guid, (float, float, float, float))>();
+            treeBinary<(Guid, (float, float, float, float))> tree = new treeBinary<(Guid, (float, float, float, float))>();
             if (start == end)
             {
                 unitControler target = mAccess.unitManager.units[list[start]];
-                if (detectors)
-                {
-                    Tree.Value = (target.ID, (target.Position.X + target.detectionRadius, target.Position.X - target.detectionRadius, target.Position.Y + target.detectionRadius, target.Position.Y - target.detectionRadius));
-                } else
-                {
-                    Tree.Value = (target.ID, (target.Position.X + target.radius, target.Position.X - target.radius, target.Position.Y + target.radius, target.Position.Y - target.radius));
-                }
-                return Tree;
+                float radius = detectors ? target.detectionRadius : target.radius;
+                tree.Value = (target.ID, getBounds(target.Position, radius));
+                return tree;
             }
-            int middle = (int)Math.Round((double)start/end);
-            Tree.left = recursiveBVH(ref list, start, middle, detectors);
-            Tree.right = recursiveBVH(ref list, middle+1, end, detectors);
-            Tree.Value = (Guid.Empty, (Math.Max(Tree.left.Value.Item2.Item1, Tree.right.Value.Item2.Item1), 
-                Math.Min(Tree.left.Value.Item2.Item2, Tree.right.Value.Item2.Item2),
-                Math.Max(Tree.left.Value.Item2.Item3, Tree.right.Value.Item2.Item3),
-                Math.Min(Tree.left.Value.Item2.Item4, Tree.right.Value.Item2.Item4)));
-            return Tree;
+
+            int middle = start + ((end - start) / 2);
+            tree.left = recursiveBVH(list, start, middle, detectors);
+            tree.right = recursiveBVH(list, middle + 1, end, detectors);
+            tree.Value = (Guid.Empty, mergeBounds(tree.left.Value.Item2, tree.right.Value.Item2));
+            return tree;
         }
+
+        (float, float, float, float) getBounds(Vector2 position, float radius)
+        {
+            return (position.X + radius, position.X - radius, position.Y + radius, position.Y - radius);
+        }
+
+        (float, float, float, float) mergeBounds((float, float, float, float) a, (float, float, float, float) b)
+        {
+            return
+            (
+                Math.Max(a.Item1, b.Item1),
+                Math.Min(a.Item2, b.Item2),
+                Math.Max(a.Item3, b.Item3),
+                Math.Min(a.Item4, b.Item4)
+            );
+        }
+
+        bool isEmptyTree(treeBinary<(Guid, (float, float, float, float))> tree)
+        {
+            return tree == null || (tree.Value.Item1 == Guid.Empty && tree.left == null && tree.right == null);
+        }
+
+        bool isLeaf(treeBinary<(Guid, (float, float, float, float))> tree)
+        {
+            return tree != null && tree.Value.Item1 != Guid.Empty;
+        }
+
         public bool inBounds((float, float, float, float) a1, (float, float, float, float) a2)
         {
-            return (!(a1.Item1 < a2.Item1 && a1.Item1 < a2.Item2) && 
-            !(a1.Item2 > a2.Item1 && a1.Item2 > a2.Item2)) && 
-            (!(a1.Item3 < a2.Item3 && a1.Item3 < a2.Item4) && 
-            !(a1.Item4 > a2.Item3 && a1.Item4 > a2.Item4));
+            return a1.Item1 >= a2.Item2 &&
+                a1.Item2 <= a2.Item1 &&
+                a1.Item3 >= a2.Item4 &&
+                a1.Item4 <= a2.Item3;
         }
+
         public void printBVH(treeBinary<(Guid, (float, float, float, float))> input)
         {
-            List<string> output = new List<string>() {input.Value.ToString()};
+            if (isEmptyTree(input))
+            {
+                GD.Print("BVH: empty");
+                return;
+            }
+
+            List<string> output = new List<string>() { input.Value.ToString() };
             GD.Print("BVH:");
             output.Add(input.Value.Item2.ToString());
-            if (input.Value.Item1 == Guid.Empty)
+            if (!isLeaf(input))
             {
                 output.AddRange(recursivePrint(input.left).Select(x => "-" + x));
                 output.AddRange(recursivePrint(input.right).Select(x => "-" + x));
-            }else
+            }
+            else
             {
                 output.Add(input.Value.Item1.ToString());
             }
+
             foreach (string s in output)
             {
                 GD.Print(s);
             }
         }
+
         public List<string> recursivePrint(treeBinary<(Guid, (float, float, float, float))> input)
         {
             List<string> output = new List<string>();
+            if (isEmptyTree(input))
+            {
+                output.Add("empty");
+                return output;
+            }
+
             output.Add(input.Value.Item2.ToString());
-            
-            if (input.Value.Item1 == Guid.Empty)
+            if (!isLeaf(input))
             {
                 output.AddRange(recursivePrint(input.left).Select(x => "-" + x));
                 output.AddRange(recursivePrint(input.right).Select(x => "-" + x));
-            } else
+            }
+            else
             {
                 output.Add(input.Value.Item1.ToString());
             }
+
             return output;
         }
     }

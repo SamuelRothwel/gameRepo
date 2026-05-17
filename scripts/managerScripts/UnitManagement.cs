@@ -160,6 +160,7 @@ namespace coolbeats.scripts.managerScripts
         }
         public void remove(Guid ID)
         {
+            mAccess.teamManager?.removeUnit(ID);
             units.Remove(ID);
         }
     }

@@ -246,7 +246,7 @@ namespace coolbeats.scripts.managerScripts
                         }
                         break;
                     case "enemy":
-                        foreach (team enemy in activeTeam.allies)
+                        foreach (team enemy in activeTeam.enemies)
                         {
                             mAccess.teamManager.searchBVH(enemy.BVH, ref targets,  math.getMinMax(position, 0));
                         }
