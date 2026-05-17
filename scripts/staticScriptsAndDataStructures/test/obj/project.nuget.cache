@@ -1,12 +1,14 @@
 {
   "version": 2,
-  "dgSpecHash": "jH+HYz0I/kY=",
+  "dgSpecHash": "suty77Caj/I=",
   "success": true,
   "projectFilePath": "C:\\Users\\Samuel\\Documents\\cool beats - Copy\\scripts\\staticScriptsAndDataStructures\\test\\StaticScriptsAndDataStructures.Tests.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Samuel\\.nuget\\packages\\godot.sourcegenerators\\4.2.2\\godot.sourcegenerators.4.2.2.nupkg.sha512",
     "C:\\Users\\Samuel\\.nuget\\packages\\godotsharp\\4.2.2\\godotsharp.4.2.2.nupkg.sha512",
     "C:\\Users\\Samuel\\.nuget\\packages\\godotsharpeditor\\4.2.2\\godotsharpeditor.4.2.2.nupkg.sha512",
+    "C:\\Users\\Samuel\\.nuget\\packages\\libgit2sharp\\0.31.0\\libgit2sharp.0.31.0.nupkg.sha512",
+    "C:\\Users\\Samuel\\.nuget\\packages\\libgit2sharp.nativebinaries\\2.0.323\\libgit2sharp.nativebinaries.2.0.323.nupkg.sha512",
     "C:\\Users\\Samuel\\.nuget\\packages\\microsoft.codecoverage\\17.11.1\\microsoft.codecoverage.17.11.1.nupkg.sha512",
     "C:\\Users\\Samuel\\.nuget\\packages\\microsoft.data.sqlite.core\\9.0.10\\microsoft.data.sqlite.core.9.0.10.nupkg.sha512",
     "C:\\Users\\Samuel\\.nuget\\packages\\microsoft.entityframeworkcore\\9.0.10\\microsoft.entityframeworkcore.9.0.10.nupkg.sha512",

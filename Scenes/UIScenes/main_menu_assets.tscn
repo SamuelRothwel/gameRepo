@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://dalhs1on3mcak"]
+[gd_scene load_steps=6 format=3 uid="uid://dalhs1on3mcak"]
 
 [ext_resource type="FontFile" uid="uid://byl0mlh7fn6it" path="res://visualAssets/Fonts/Xirod.otf" id="1_x5if7"]
 [ext_resource type="Script" path="res://scripts/UIScripts/StartButton.cs" id="2_5cfns"]
 [ext_resource type="Script" path="res://scripts/UIScripts/UnitCreatorButton.cs" id="3_yq64e"]
 [ext_resource type="Script" path="res://scripts/UIScripts/SettingsButton.cs" id="4_4q1ve"]
+[ext_resource type="Script" path="res://scripts/UIScripts/SandboxButton.cs" id="5_rkf08"]
 
 [node name="MainMenuAssets" type="Node"]
 
@@ -32,7 +33,7 @@ offset_right = 866.0
 offset_bottom = 591.0
 theme_override_fonts/font = ExtResource("1_x5if7")
 text = "TEST"
-script = ExtResource("2_5cfns")
+script = ExtResource("5_rkf08")
 
 [node name="SettingsButton" type="Button" parent="."]
 offset_left = 366.0

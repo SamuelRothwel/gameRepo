@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("StaticScriptsAndDataStructures.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3c02a254adac2894bbe96ca57eae4fc09410e5ba")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c5aaee1c33b17fedd8d8218ef59db7f616769480")]
 [assembly: System.Reflection.AssemblyProductAttribute("StaticScriptsAndDataStructures.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("StaticScriptsAndDataStructures.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

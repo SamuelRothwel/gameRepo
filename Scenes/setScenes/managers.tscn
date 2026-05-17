@@ -1,4 +1,4 @@
-[gd_scene load_steps=29 format=3 uid="uid://nou2fkswxvvc"]
+[gd_scene load_steps=30 format=3 uid="uid://nou2fkswxvvc"]
 
 [ext_resource type="Script" path="res://scripts/managerScripts/LogicManagement.cs" id="1_0nxiu"]
 [ext_resource type="Script" path="res://scripts/managerScripts/EntityManagement.cs" id="1_j3fb0"]
@@ -28,6 +28,7 @@
 [ext_resource type="Script" path="res://scripts/managerScripts/EntityFrameworkManagement.cs" id="25_qkqil"]
 [ext_resource type="Script" path="res://scripts/managerScripts/WindowManagement.cs" id="26_2r0pr"]
 [ext_resource type="Script" path="res://scripts/managerScripts/StyleManagement.cs" id="27_mh0ng"]
+[ext_resource type="PackedScene" path="res://Scenes/GameScenes/sandbox_scene.tscn" id="28_w4jif"]
 
 [node name="managers" type="Node"]
 
@@ -100,3 +101,4 @@ script = ExtResource("19_xrkr1")
 script = ExtResource("2_8sw6g")
 menuScene = ExtResource("5_fnwkc")
 gameScene = ExtResource("6_2acsn")
+sandboxScene = ExtResource("28_w4jif")

@@ -22,3 +22,5 @@
 [node name="colorPicker" parent="." instance=ExtResource("5_3c2n4")]
 layout_mode = 3
 anchors_preset = 0
+
+[node name="sandbox" type="Node" parent="."]

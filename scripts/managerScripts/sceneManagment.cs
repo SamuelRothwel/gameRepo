@@ -9,6 +9,7 @@ public partial class sceneManagment : managerNode
 {
 	[Export] public PackedScene menuScene;
 	[Export] public PackedScene gameScene;
+	[Export] public PackedScene sandboxScene;
 	public List<Node> sceneNodes;
 	public Node gameNode;
 	public FallbackDictionary<string, bool> gameStates;
@@ -96,6 +97,15 @@ public partial class sceneManagment : managerNode
 			gameStates.Switch("unitCreator");
 			mAccess.uiManager.changeUI("unitCreator");
 			mAccess.entityManager.spawnEntity("playerCamera");
+		});
+	}
+	public void sandbox()
+	{
+		changeSceneAfterUnsavedCheck(() =>
+		{
+			GetTree().ChangeSceneToPacked(sandboxScene);
+			gameStates.Switch("gameActive");
+			mAccess.uiManager.changeUI("sandbox");
 		});
 	}
 
