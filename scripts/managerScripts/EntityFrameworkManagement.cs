@@ -1,8 +1,11 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Text.Json;
+using LibGit2Sharp;
 using Microsoft.EntityFrameworkCore;
 
 public class StoredSprite
@@ -30,17 +33,45 @@ public class StoredAnimation
 	public string Name { get; set; } = "";
 	public string AnimationType { get; set; } = "";
 	public float Duration { get; set; }
-	public List<StoredAnimationParameter> Parameters { get; set; } = new();
+	public List<StoredAnimationVariable> Variables { get; set; } = new();
+	public List<StoredAnimationPropertyRequirement> PropertyRequirements { get; set; } = new();
+	public List<StoredAnimationTransformation> Transformations { get; set; } = new();
 }
 
-public class StoredAnimationParameter
+public class StoredAnimationVariable
 {
 	public Guid Id { get; set; }
 	public Guid StoredAnimationId { get; set; }
 	public StoredAnimation StoredAnimation { get; set; }
-	public string Key { get; set; } = "";
-	public string ValueType { get; set; } = "";
-	public string ValueJson { get; set; } = "";
+	public string Name { get; set; } = "";
+	public string Source { get; set; } = "";
+}
+
+public class StoredAnimationPropertyRequirement
+{
+	public Guid Id { get; set; }
+	public Guid StoredAnimationId { get; set; }
+	public StoredAnimation StoredAnimation { get; set; }
+	public string TargetName { get; set; } = "";
+	public string TargetTypeName { get; set; } = "";
+	public string PropertyName { get; set; } = "";
+	public string ValueTypeName { get; set; } = "";
+	public string InterfaceName { get; set; } = "";
+}
+
+public class StoredAnimationTransformation
+{
+	public Guid Id { get; set; }
+	public Guid StoredAnimationId { get; set; }
+	public StoredAnimation StoredAnimation { get; set; }
+	public string PropertyName { get; set; } = "";
+	public string LoopVariable { get; set; } = "";
+	public string LoopCountVariable { get; set; } = "";
+	public float StartTime { get; set; }
+	public float EndTime { get; set; }
+	public string StartValue { get; set; } = "";
+	public string EndValue { get; set; } = "";
+	public string FunctionType { get; set; } = "";
 }
 
 public class StoredUnit
@@ -146,10 +177,13 @@ public class StoredUnitSubUnitTrait
 
 public class GameDbContext : DbContext
 {
+	public static string DatabasePath { get; set; } = ProjectSettings.GlobalizePath("user://game_data.db");
 	public DbSet<StoredSprite> Sprites { get; set; }
 	public DbSet<StoredSpriteLayer> SpriteLayers { get; set; }
 	public DbSet<StoredAnimation> Animations { get; set; }
-	public DbSet<StoredAnimationParameter> AnimationParameters { get; set; }
+	public DbSet<StoredAnimationVariable> AnimationVariables { get; set; }
+	public DbSet<StoredAnimationPropertyRequirement> AnimationPropertyRequirements { get; set; }
+	public DbSet<StoredAnimationTransformation> AnimationTransformations { get; set; }
 	public DbSet<StoredUnit> Units { get; set; }
 	public DbSet<StoredUnitTrait> UnitTraits { get; set; }
 	public DbSet<StoredUnitBehavior> UnitBehaviors { get; set; }
@@ -161,8 +195,7 @@ public class GameDbContext : DbContext
 
 	protected override void OnConfiguring(DbContextOptionsBuilder options)
 	{
-		string databasePath = ProjectSettings.GlobalizePath("user://game_data.db");
-		options.UseSqlite($"Data Source={databasePath}");
+		options.UseSqlite($"Data Source={DatabasePath}");
 	}
 
 	protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -182,13 +215,31 @@ public class GameDbContext : DbContext
 		modelBuilder.Entity<StoredAnimation>()
 			.HasKey(animation => animation.Id);
 
-		modelBuilder.Entity<StoredAnimationParameter>()
-			.HasKey(parameter => parameter.Id);
+		modelBuilder.Entity<StoredAnimationVariable>()
+			.HasKey(variable => variable.Id);
+
+		modelBuilder.Entity<StoredAnimationPropertyRequirement>()
+			.HasKey(requirement => requirement.Id);
+
+		modelBuilder.Entity<StoredAnimationTransformation>()
+			.HasKey(transformation => transformation.Id);
 
 		modelBuilder.Entity<StoredAnimation>()
-			.HasMany(animation => animation.Parameters)
-			.WithOne(parameter => parameter.StoredAnimation)
-			.HasForeignKey(parameter => parameter.StoredAnimationId)
+			.HasMany(animation => animation.Variables)
+			.WithOne(variable => variable.StoredAnimation)
+			.HasForeignKey(variable => variable.StoredAnimationId)
+			.OnDelete(DeleteBehavior.Cascade);
+
+		modelBuilder.Entity<StoredAnimation>()
+			.HasMany(animation => animation.PropertyRequirements)
+			.WithOne(requirement => requirement.StoredAnimation)
+			.HasForeignKey(requirement => requirement.StoredAnimationId)
+			.OnDelete(DeleteBehavior.Cascade);
+
+		modelBuilder.Entity<StoredAnimation>()
+			.HasMany(animation => animation.Transformations)
+			.WithOne(transformation => transformation.StoredAnimation)
+			.HasForeignKey(transformation => transformation.StoredAnimationId)
 			.OnDelete(DeleteBehavior.Cascade);
 
 		modelBuilder.Entity<StoredUnit>()
@@ -273,12 +324,162 @@ public class GameDbContext : DbContext
 
 public partial class EntityFrameworkManagement : managerNode
 {
+	const string MainDatabaseName = "game_data.db";
+	const string TextDataFileName = "text data.json";
 	public Dictionary<Guid, UnsavedObjectRegistration> unsavedObjects;
+	public DatabaseStorageTextData databaseTextData;
 	public override void setup()
 	{
 		unsavedObjects = new Dictionary<Guid, UnsavedObjectRegistration>();
+		SetupDatabaseStorage();
 		SetupDatabase();
 		mAccess.animationManager?.RegisterStoredDynamicAnimations(GetAnimations());
+	}
+
+	void SetupDatabaseStorage()
+	{
+		databaseTextData = LoadDatabaseTextData();
+		string databaseName = MainDatabaseName;
+		if (databaseTextData.UseBranchDatabases)
+		{
+			string branchName = GetCurrentBranchName();
+			databaseName = CreateBranchDatabaseName(branchName);
+			bool databaseIsRegistered = databaseTextData.ExistingDatabases.Contains(databaseName);
+			bool databaseFileExists = File.Exists(GetDatabasePath(databaseName));
+			if (!databaseIsRegistered || !databaseFileExists)
+			{
+				CopyMostRecentDatabase(databaseName, databaseTextData.MostRecentDatabaseName);
+				if (!databaseIsRegistered)
+				{
+					databaseTextData.ExistingDatabases.Add(databaseName);
+				}
+			}
+			databaseTextData.MostRecentDatabaseName = databaseName;
+			SaveDatabaseTextData(databaseTextData);
+		}
+
+		GameDbContext.DatabasePath = GetDatabasePath(databaseName);
+	}
+
+	DatabaseStorageTextData LoadDatabaseTextData()
+	{
+		string textDataPath = GetTextDataPath();
+		if (!File.Exists(textDataPath))
+		{
+			DatabaseStorageTextData defaultData = new DatabaseStorageTextData
+			{
+				MostRecentDatabaseName = MainDatabaseName,
+				ExistingDatabases = new List<string> { MainDatabaseName },
+				UseBranchDatabases = false
+			};
+			SaveDatabaseTextData(defaultData);
+			return defaultData;
+		}
+
+		try
+		{
+			DatabaseStorageTextData loadedData = JsonSerializer.Deserialize<DatabaseStorageTextData>(File.ReadAllText(textDataPath), CreateTextDataJsonOptions()) ?? new DatabaseStorageTextData();
+			loadedData.MostRecentDatabaseName = string.IsNullOrWhiteSpace(loadedData.MostRecentDatabaseName)
+				? MainDatabaseName
+				: loadedData.MostRecentDatabaseName;
+			loadedData.ExistingDatabases ??= new List<string>();
+			if (!loadedData.ExistingDatabases.Contains(MainDatabaseName))
+			{
+				loadedData.ExistingDatabases.Add(MainDatabaseName);
+			}
+			if (!loadedData.ExistingDatabases.Contains(loadedData.MostRecentDatabaseName))
+			{
+				loadedData.ExistingDatabases.Add(loadedData.MostRecentDatabaseName);
+			}
+			return loadedData;
+		}
+		catch
+		{
+			return new DatabaseStorageTextData
+			{
+				MostRecentDatabaseName = MainDatabaseName,
+				ExistingDatabases = new List<string> { MainDatabaseName },
+				UseBranchDatabases = false
+			};
+		}
+	}
+
+	void SaveDatabaseTextData(DatabaseStorageTextData textData)
+	{
+		string textDataPath = GetTextDataPath();
+		Directory.CreateDirectory(Path.GetDirectoryName(textDataPath));
+		File.WriteAllText(textDataPath, JsonSerializer.Serialize(textData, CreateTextDataJsonOptions()));
+	}
+
+	JsonSerializerOptions CreateTextDataJsonOptions()
+	{
+		return new JsonSerializerOptions
+		{
+			WriteIndented = true
+		};
+	}
+
+	string GetTextDataPath()
+	{
+		return ProjectSettings.GlobalizePath("user://" + TextDataFileName);
+	}
+
+	string GetDatabasePath(string databaseName)
+	{
+		return ProjectSettings.GlobalizePath("user://" + databaseName);
+	}
+
+	string GetCurrentBranchName()
+	{
+		try
+		{
+			string repositoryPath = Repository.Discover(ProjectSettings.GlobalizePath("res://"));
+			if (string.IsNullOrEmpty(repositoryPath))
+			{
+				return "no_branch";
+			}
+
+			using Repository repository = new Repository(repositoryPath);
+			return string.IsNullOrWhiteSpace(repository.Head.FriendlyName)
+				? "detached_head"
+				: repository.Head.FriendlyName;
+		}
+		catch
+		{
+			return "unknown_branch";
+		}
+	}
+
+	string CreateBranchDatabaseName(string branchName)
+	{
+		string safeBranchName = Regex.Replace(branchName.ToLowerInvariant(), @"[^a-z0-9]+", "_").Trim('_');
+		if (string.IsNullOrEmpty(safeBranchName))
+		{
+			safeBranchName = "unknown_branch";
+		}
+
+		return "game_data_" + safeBranchName + ".db";
+	}
+
+	void CopyMostRecentDatabase(string targetDatabaseName, string sourceDatabaseName)
+	{
+		string targetPath = GetDatabasePath(targetDatabaseName);
+		if (File.Exists(targetPath))
+		{
+			return;
+		}
+
+		string sourcePath = GetDatabasePath(string.IsNullOrWhiteSpace(sourceDatabaseName) ? MainDatabaseName : sourceDatabaseName);
+		if (!File.Exists(sourcePath))
+		{
+			sourcePath = GetDatabasePath(MainDatabaseName);
+		}
+
+		Directory.CreateDirectory(Path.GetDirectoryName(targetPath));
+		if (File.Exists(sourcePath))
+		{
+			File.Copy(sourcePath, targetPath);
+		}
 	}
 
 	public void SetupDatabase()
@@ -311,15 +512,42 @@ public partial class EntityFrameworkManagement : managerNode
 			)
 			""");
 		context.Database.ExecuteSqlRaw("""
-			CREATE TABLE IF NOT EXISTS AnimationParameters (
-				Id TEXT NOT NULL CONSTRAINT PK_AnimationParameters PRIMARY KEY,
+			CREATE TABLE IF NOT EXISTS AnimationVariables (
+				Id TEXT NOT NULL CONSTRAINT PK_AnimationVariables PRIMARY KEY,
 				StoredAnimationId TEXT NOT NULL,
-				Key TEXT NOT NULL,
-				ValueType TEXT NOT NULL,
-				ValueJson TEXT NOT NULL,
-				CONSTRAINT FK_AnimationParameters_Animations_StoredAnimationId FOREIGN KEY (StoredAnimationId) REFERENCES Animations (Id) ON DELETE CASCADE
+				Name TEXT NOT NULL,
+				Source TEXT NOT NULL,
+				CONSTRAINT FK_AnimationVariables_Animations_StoredAnimationId FOREIGN KEY (StoredAnimationId) REFERENCES Animations (Id) ON DELETE CASCADE
 			)
 			""");
+		context.Database.ExecuteSqlRaw("""
+			CREATE TABLE IF NOT EXISTS AnimationPropertyRequirements (
+				Id TEXT NOT NULL CONSTRAINT PK_AnimationPropertyRequirements PRIMARY KEY,
+				StoredAnimationId TEXT NOT NULL,
+				TargetName TEXT NOT NULL,
+				TargetTypeName TEXT NOT NULL,
+				PropertyName TEXT NOT NULL,
+				ValueTypeName TEXT NOT NULL,
+				InterfaceName TEXT NOT NULL,
+				CONSTRAINT FK_AnimationPropertyRequirements_Animations_StoredAnimationId FOREIGN KEY (StoredAnimationId) REFERENCES Animations (Id) ON DELETE CASCADE
+			)
+			""");
+		context.Database.ExecuteSqlRaw("""
+			CREATE TABLE IF NOT EXISTS AnimationTransformations (
+				Id TEXT NOT NULL CONSTRAINT PK_AnimationTransformations PRIMARY KEY,
+				StoredAnimationId TEXT NOT NULL,
+				PropertyName TEXT NOT NULL,
+				LoopVariable TEXT NOT NULL DEFAULT '',
+				LoopCountVariable TEXT NOT NULL DEFAULT '',
+				StartTime REAL NOT NULL,
+				EndTime REAL NOT NULL,
+				StartValue TEXT NOT NULL,
+				EndValue TEXT NOT NULL,
+				FunctionType TEXT NOT NULL,
+				CONSTRAINT FK_AnimationTransformations_Animations_StoredAnimationId FOREIGN KEY (StoredAnimationId) REFERENCES Animations (Id) ON DELETE CASCADE
+			)
+			""");
+		EnsureAnimationTransformationColumns(context);
 		context.Database.ExecuteSqlRaw("""
 			CREATE TABLE IF NOT EXISTS Units (
 				Id TEXT NOT NULL CONSTRAINT PK_Units PRIMARY KEY,
@@ -416,6 +644,24 @@ public partial class EntityFrameworkManagement : managerNode
 			""");
 	}
 
+	void EnsureAnimationTransformationColumns(GameDbContext context)
+	{
+		try
+		{
+			context.Database.ExecuteSqlRaw("ALTER TABLE AnimationTransformations ADD COLUMN LoopVariable TEXT NOT NULL DEFAULT ''");
+		}
+		catch
+		{
+		}
+		try
+		{
+			context.Database.ExecuteSqlRaw("ALTER TABLE AnimationTransformations ADD COLUMN LoopCountVariable TEXT NOT NULL DEFAULT ''");
+		}
+		catch
+		{
+		}
+	}
+
 	public int SaveSprite(Guid id, string name, int version, List<StoredSpriteLayer> layers)
 	{
 		using GameDbContext context = new GameDbContext();
@@ -492,8 +738,14 @@ public partial class EntityFrameworkManagement : managerNode
 		else
 		{
 			animation.Id = storedAnimation.Id;
-			context.AnimationParameters
-				.Where(parameter => parameter.StoredAnimationId == storedAnimation.Id)
+			context.AnimationVariables
+				.Where(variable => variable.StoredAnimationId == storedAnimation.Id)
+				.ExecuteDelete();
+			context.AnimationPropertyRequirements
+				.Where(requirement => requirement.StoredAnimationId == storedAnimation.Id)
+				.ExecuteDelete();
+			context.AnimationTransformations
+				.Where(transformation => transformation.StoredAnimationId == storedAnimation.Id)
 				.ExecuteDelete();
 		}
 
@@ -502,14 +754,30 @@ public partial class EntityFrameworkManagement : managerNode
 		storedAnimation.Duration = animation.Duration;
 		context.SaveChanges();
 
-		foreach (StoredAnimationParameter parameter in animation.Parameters)
+		foreach (StoredAnimationVariable variable in animation.Variables)
 		{
-			parameter.Id = Guid.NewGuid();
-			parameter.StoredAnimationId = storedAnimation.Id;
-			parameter.StoredAnimation = null;
+			variable.Id = Guid.NewGuid();
+			variable.StoredAnimationId = storedAnimation.Id;
+			variable.StoredAnimation = null;
 		}
 
-		context.AnimationParameters.AddRange(animation.Parameters);
+		foreach (StoredAnimationPropertyRequirement requirement in animation.PropertyRequirements)
+		{
+			requirement.Id = Guid.NewGuid();
+			requirement.StoredAnimationId = storedAnimation.Id;
+			requirement.StoredAnimation = null;
+		}
+
+		foreach (StoredAnimationTransformation transformation in animation.Transformations)
+		{
+			transformation.Id = Guid.NewGuid();
+			transformation.StoredAnimationId = storedAnimation.Id;
+			transformation.StoredAnimation = null;
+		}
+
+		context.AnimationVariables.AddRange(animation.Variables);
+		context.AnimationPropertyRequirements.AddRange(animation.PropertyRequirements);
+		context.AnimationTransformations.AddRange(animation.Transformations);
 		context.SaveChanges();
 		transaction.Commit();
 	}
@@ -518,14 +786,20 @@ public partial class EntityFrameworkManagement : managerNode
 	{
 		using GameDbContext context = new GameDbContext();
 		return context.Animations
-			.Include(animation => animation.Parameters)
+			.Include(animation => animation.Variables)
+			.Include(animation => animation.PropertyRequirements)
+			.Include(animation => animation.Transformations)
 			.Select(animation => new StoredAnimation
 			{
 				Id = animation.Id,
 				Name = animation.Name,
 				AnimationType = animation.AnimationType,
 				Duration = animation.Duration,
-				Parameters = animation.Parameters.ToList()
+				Variables = animation.Variables.ToList(),
+				PropertyRequirements = animation.PropertyRequirements.ToList(),
+				Transformations = animation.Transformations
+					.OrderBy(transformation => transformation.StartTime)
+					.ToList()
 			})
 			.OrderBy(animation => animation.Name)
 			.ToList();
@@ -1057,4 +1331,11 @@ public class UnsavedObjectRegistration
 	public Func<int> GetCurrentVersion { get; set; }
 	public Func<int> Save { get; set; }
 	public Action Discard { get; set; }
+}
+
+public class DatabaseStorageTextData
+{
+	public string MostRecentDatabaseName { get; set; } = "game_data.db";
+	public List<string> ExistingDatabases { get; set; } = new();
+	public bool UseBranchDatabases { get; set; }
 }

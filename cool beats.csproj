@@ -16,5 +16,6 @@
   <ItemGroup>
   <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" />
   <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.10" />
+  <PackageReference Include="LibGit2Sharp" Version="0.31.0" />
 </ItemGroup>
 </Project>

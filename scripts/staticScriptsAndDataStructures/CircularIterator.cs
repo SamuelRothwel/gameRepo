@@ -10,15 +10,21 @@ namespace coolbeats.scripts.staticScriptsAndDataStructures
     {
         public T[] array;
         public int index;
+        public int Count { get; }
         public T Current => array[index];
         public CircularEnumerator(ref T[] values, int start = 0)
         {
             array = values;
             index = start;
+            Count = values.Count();
         }
         public void MoveNext()
         {
-            index = (index + 1) % array.Count();
+            index = (index + 1) % Count;
+        }
+        public T GetLoopItem(int offset)
+        {
+            return array[(index + offset) % Count];
         }
         public IEnumerable<T> loop()
         {
