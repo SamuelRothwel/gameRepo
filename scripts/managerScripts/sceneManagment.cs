@@ -133,7 +133,7 @@ public partial class sceneManagment : managerNode
 
 	private void InitialiseNode(Node node)
 	{
-		if (mAccess.styleManager != null)
+		if (mAccess.styleManager != null && mAccess.styleManager.isSetupComplete)
 		{
 			mAccess.styleManager.applyUniversalStyleTree(node);
 		}

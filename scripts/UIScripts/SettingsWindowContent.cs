@@ -16,8 +16,18 @@ public partial class SettingsWindowContent : VBoxContainer
 	Control contentHost;
 	SettingsPage currentPage = SettingsPage.Home;
 	int selectedColorSchemeIndex;
+	Vector2I selectedResolution;
 	float draftMasterVolumePercent;
 	bool applyingSettings;
+	readonly Vector2I[] resolutionOptions = new Vector2I[]
+	{
+		new Vector2I(1280, 720),
+		new Vector2I(1366, 768),
+		new Vector2I(1600, 900),
+		new Vector2I(1920, 1080),
+		new Vector2I(2560, 1440),
+		new Vector2I(3840, 2160)
+	};
 
 	public SettingsWindowContent()
 	{
@@ -31,6 +41,7 @@ public partial class SettingsWindowContent : VBoxContainer
 		StoredGameSettings savedSettings = mAccess.entityFrameworkManager?.LoadGameSettings();
 		selectedColorSchemeIndex = mAccess.styleManager.activeColorSchemeIndex;
 		draftMasterVolumePercent = savedSettings == null ? getMasterVolumePercent() : savedSettings.MasterVolumePercent;
+		selectedResolution = getInitialResolution(savedSettings);
 		setupDraftColors();
 		setupDraftTextStyles();
 		buildFrame();
@@ -129,7 +140,7 @@ public partial class SettingsWindowContent : VBoxContainer
 		menu.AddChild(categoryGrid);
 
 		categoryGrid.AddChild(createCategoryButton("Audio", () => showSubMenu(SettingsPage.Audio, "Audio", createAudioMenu())));
-		categoryGrid.AddChild(createCategoryButton("Video", () => showSubMenu(SettingsPage.Video, "Video", createVideoMenu())));
+		categoryGrid.AddChild(createCategoryButton("Visual", () => showSubMenu(SettingsPage.Visual, "Visual", createVisualMenu())));
 		categoryGrid.AddChild(createCategoryButton("Controls", () => showSubMenu(SettingsPage.Controls, "Controls", createControlsMenu())));
 		categoryGrid.AddChild(createCategoryButton("Appearance", () => showSubMenu(SettingsPage.Appearance, "Appearance", createStylesMenu())));
 		categoryGrid.AddChild(createCategoryButton("Colors", () => showSubMenu(SettingsPage.Colors, "Colors", createColorsMenu())));
@@ -227,13 +238,59 @@ public partial class SettingsWindowContent : VBoxContainer
 		return menu;
 	}
 
-	Control createVideoMenu()
+	Control createVisualMenu()
 	{
 		VBoxContainer menu = new VBoxContainer();
 		menu.AddThemeConstantOverride("separation", 8);
 		menu.AddChild(createReadOnlySettingRow("Window Mode", "Windowed"));
-		menu.AddChild(createReadOnlySettingRow("Resolution", getResolutionText()));
+		menu.AddChild(createResolutionRow());
 		return menu;
+	}
+
+	Control createResolutionRow()
+	{
+		PanelContainer panel = new PanelContainer();
+		panel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		mAccess.styleManager.applyPanelStyle(panel, "subtle");
+
+		MarginContainer margin = new MarginContainer();
+		margin.AddThemeConstantOverride("margin_left", 10);
+		margin.AddThemeConstantOverride("margin_right", 10);
+		margin.AddThemeConstantOverride("margin_top", 6);
+		margin.AddThemeConstantOverride("margin_bottom", 6);
+		panel.AddChild(margin);
+
+		HBoxContainer row = new HBoxContainer();
+		row.AddThemeConstantOverride("separation", 10);
+		margin.AddChild(row);
+
+		Label name = new Label();
+		name.Text = "Resolution";
+		name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		name.VerticalAlignment = VerticalAlignment.Center;
+		mAccess.styleManager.applyTextStyle(name, "default");
+		row.AddChild(name);
+
+		OptionButton resolutionDropdown = new OptionButton();
+		resolutionDropdown.CustomMinimumSize = new Vector2(180, 32);
+		resolutionDropdown.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
+		List<Vector2I> options = getResolutionOptions();
+		for (int i = 0; i < options.Count; i++)
+		{
+			resolutionDropdown.AddItem(formatResolution(options[i]), i);
+			if (options[i] == selectedResolution)
+			{
+				resolutionDropdown.Selected = i;
+			}
+		}
+		resolutionDropdown.ItemSelected += index =>
+		{
+			selectedResolution = options[(int)index];
+		};
+		mAccess.styleManager.applyTextStyle(resolutionDropdown, "default");
+		row.AddChild(resolutionDropdown);
+
+		return panel;
 	}
 
 	Control createControlsMenu()
@@ -291,10 +348,29 @@ public partial class SettingsWindowContent : VBoxContainer
 		return panel;
 	}
 
-	string getResolutionText()
+	Vector2I getInitialResolution(StoredGameSettings savedSettings)
 	{
-		Vector2 size = GetViewport().GetVisibleRect().Size;
-		return Mathf.RoundToInt(size.X) + " x " + Mathf.RoundToInt(size.Y);
+		if (savedSettings != null && savedSettings.ResolutionWidth > 0 && savedSettings.ResolutionHeight > 0)
+		{
+			return new Vector2I(savedSettings.ResolutionWidth, savedSettings.ResolutionHeight);
+		}
+
+		return DisplayServer.WindowGetSize();
+	}
+
+	List<Vector2I> getResolutionOptions()
+	{
+		List<Vector2I> options = new List<Vector2I>(resolutionOptions);
+		if (!options.Contains(selectedResolution))
+		{
+			options.Insert(0, selectedResolution);
+		}
+		return options;
+	}
+
+	string formatResolution(Vector2I resolution)
+	{
+		return resolution.X + " x " + resolution.Y;
 	}
 
 	string getActionBindText(StringName actionName)
@@ -600,7 +676,7 @@ public partial class SettingsWindowContent : VBoxContainer
 	void openColorPicker(string colorName, Button button)
 	{
 		Vector2 pickerPosition = new Vector2(button.GlobalPosition.X + button.Size.X + 12f, button.GlobalPosition.Y);
-		mAccess.colorManager.openColorPicker(this, colorName, pickerPosition);
+		mAccess.uiManager.openColorPicker(this, colorName, pickerPosition);
 	}
 
 	void openColorSchemeList()
@@ -613,12 +689,67 @@ public partial class SettingsWindowContent : VBoxContainer
 		VBoxContainer list = new VBoxContainer();
 		list.CustomMinimumSize = new Vector2(300, 220);
 
+		Button createButton = createActionButton("Create New Scheme", "secondary");
+		createButton.CustomMinimumSize = new Vector2(280, 38);
+		createButton.Pressed += openNewColorSchemeWindow;
+		list.AddChild(createButton);
+
 		for (int i = 0; i < mAccess.styleManager.colorSchemes.Count; i++)
 		{
 			list.AddChild(createColorSchemeRow(i));
 		}
 
 		return list;
+	}
+
+	void openNewColorSchemeWindow()
+	{
+		VBoxContainer content = new VBoxContainer();
+		content.CustomMinimumSize = new Vector2(280, 92);
+		content.AddThemeConstantOverride("separation", 8);
+
+		Label label = new Label();
+		label.Text = "Scheme Name";
+		mAccess.styleManager.applyTextStyle(label, "default");
+		content.AddChild(label);
+
+		LineEdit nameInput = new LineEdit();
+		nameInput.Text = "Custom Scheme " + (mAccess.styleManager.colorSchemes.Count + 1);
+		nameInput.SelectAll();
+		mAccess.styleManager.applyTextStyle(nameInput, "default");
+		content.AddChild(nameInput);
+
+		HBoxContainer buttons = new HBoxContainer();
+		buttons.AddThemeConstantOverride("separation", 8);
+		content.AddChild(buttons);
+
+		Button createButton = createActionButton("Create", "secondary");
+		createButton.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		createButton.Pressed += () => createNewColorScheme(nameInput.Text);
+		buttons.AddChild(createButton);
+
+		Button cancelButton = createActionButton("Cancel", "secondary");
+		cancelButton.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		cancelButton.Pressed += () => mAccess.windowManager.closeWindow("New Color Scheme", false);
+		buttons.AddChild(cancelButton);
+
+		mAccess.windowManager.openWindow("New Color Scheme", content, "closeButtonTransparentTopbar", false);
+		nameInput.GrabFocus();
+	}
+
+	void createNewColorScheme(string schemeName)
+	{
+		Color[] colors = new Color[mAccess.styleManager.colorSchemeColorNames.Length];
+		for (int i = 0; i < colors.Length; i++)
+		{
+			string colorName = mAccess.styleManager.colorSchemeColorNames[i];
+			colors[i] = mAccess.colorManager.getColor(draftColorNames[colorName]);
+		}
+
+		selectedColorSchemeIndex = mAccess.styleManager.addColorScheme(schemeName, colors);
+		refreshColorSchemeUi();
+		mAccess.windowManager.closeWindow("New Color Scheme", false);
+		mAccess.windowManager.closeWindow("Color Schemes", false);
 	}
 
 	Button createColorSchemeRow(int schemeIndex)
@@ -709,7 +840,10 @@ public partial class SettingsWindowContent : VBoxContainer
 		for (int i = 0; i < schemePreviewSwatches.Count && i < mAccess.styleManager.colorSchemeColorNames.Length; i++)
 		{
 			string colorName = mAccess.styleManager.colorSchemeColorNames[i];
-			schemePreviewSwatches[i].Color = mAccess.colorManager.getColor(draftColorNames[colorName]);
+			if (draftColorNames.TryGetValue(colorName, out string draftColorName))
+			{
+				schemePreviewSwatches[i].Color = mAccess.colorManager.getColor(draftColorName);
+			}
 		}
 	}
 
@@ -768,9 +902,12 @@ public partial class SettingsWindowContent : VBoxContainer
 		draftColorNames.Clear();
 		foreach (string colorName in mAccess.styleManager.colorSchemeColorNames)
 		{
-			string draftColorName = "settingsDraft_" + colorName;
-			draftColorNames[colorName] = draftColorName;
-			mAccess.colorManager.updateColor(draftColorName, mAccess.colorManager.getColor(colorName));
+			draftColorNames[colorName] = "settingsDraft_" + colorName;
+		}
+
+		foreach (string colorName in mAccess.styleManager.colorSchemeColorNames)
+		{
+			mAccess.colorManager.updateColor(draftColorNames[colorName], mAccess.colorManager.getColor(colorName));
 		}
 	}
 
@@ -810,12 +947,20 @@ public partial class SettingsWindowContent : VBoxContainer
 		}
 		mAccess.styleManager.refreshTextStyles();
 		applyingSettings = false;
-		mAccess.entityFrameworkManager?.SaveGameSettings(mAccess.styleManager.createStoredGameSettings(draftMasterVolumePercent));
+		applyResolution();
+		mAccess.entityFrameworkManager?.SaveGameSettings(mAccess.styleManager.createStoredGameSettings(draftMasterVolumePercent, selectedResolution));
 		setupDraftColors();
-		setupDraftTextStyles();
 		refreshColorSchemeUi();
 		refreshFontPreviews();
 		applyMasterVolume();
+	}
+
+	void applyResolution()
+	{
+		if (selectedResolution.X > 0 && selectedResolution.Y > 0)
+		{
+			DisplayServer.WindowSetSize(selectedResolution);
+		}
 	}
 
 	void setButtonColor(Button button, Color color)
@@ -828,7 +973,7 @@ public enum SettingsPage
 {
 	Home,
 	Audio,
-	Video,
+	Visual,
 	Controls,
 	Appearance,
 	Colors

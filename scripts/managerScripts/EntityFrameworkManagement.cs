@@ -344,7 +344,7 @@ public partial class EntityFrameworkManagement : managerNode
 		unsavedObjects = new Dictionary<Guid, UnsavedObjectRegistration>();
 		SetupDatabaseStorage();
 		SetupDatabase();
-		ApplyStoredAudioSettings();
+		ApplyStoredRuntimeSettings();
 		mAccess.animationManager?.RegisterStoredDynamicAnimations(GetAnimations());
 	}
 
@@ -721,7 +721,7 @@ public partial class EntityFrameworkManagement : managerNode
 		context.SaveChanges();
 	}
 
-	void ApplyStoredAudioSettings()
+	void ApplyStoredRuntimeSettings()
 	{
 		StoredGameSettings settings = LoadGameSettings();
 		if (settings == null)
@@ -732,6 +732,10 @@ public partial class EntityFrameworkManagement : managerNode
 		int busIndex = AudioServer.GetBusIndex("Master");
 		float linearVolume = Mathf.Max(settings.MasterVolumePercent / 100f, 0.0001f);
 		AudioServer.SetBusVolumeDb(busIndex, Mathf.LinearToDb(linearVolume));
+		if (settings.ResolutionWidth > 0 && settings.ResolutionHeight > 0)
+		{
+			DisplayServer.WindowSetSize(new Vector2I(settings.ResolutionWidth, settings.ResolutionHeight));
+		}
 	}
 
 	public int SaveSprite(Guid id, string name, int version, List<StoredSpriteLayer> layers)
@@ -1420,8 +1424,27 @@ public class StoredGameSettings
 {
 	public int ActiveColorSchemeIndex { get; set; }
 	public float MasterVolumePercent { get; set; } = 100f;
+	public int ResolutionWidth { get; set; }
+	public int ResolutionHeight { get; set; }
 	public Dictionary<string, StoredColorValue> Colors { get; set; } = new();
 	public Dictionary<string, StoredTextStyleSettings> TextStyles { get; set; } = new();
+	public List<StoredColorSchemeSettings> ColorSchemes { get; set; } = new();
+}
+
+public class StoredColorSchemeSettings
+{
+	public string Name { get; set; } = "";
+	public List<StoredColorValue> Colors { get; set; } = new();
+
+	public StoredColorSchemeSettings()
+	{
+	}
+
+	public StoredColorSchemeSettings(ColorScheme scheme)
+	{
+		Name = scheme.name;
+		Colors = scheme.colors.Select(color => new StoredColorValue(color)).ToList();
+	}
 }
 
 public class StoredColorValue

@@ -25,6 +25,7 @@ public partial class WindowManagement : managerNode
 	void onStyleChanged(object sender, EventArgs e)
 	{
 		refreshStylePresets();
+		refreshOpenWindowStyles();
 	}
 
 	void refreshStylePresets()
@@ -59,7 +60,7 @@ public partial class WindowManagement : managerNode
 		}
 
 		WindowPreset preset = presets[presetName];
-		ManagedViewportWindow window = createWindowRoot(name, content, preset);
+		ManagedViewportWindow window = createWindowRoot(name, content, presetName, preset);
 		windowLayer.AddChild(window);
 		windows[name] = window;
 		windowCloseChecks[name] = checkUnsavedOnClose;
@@ -86,10 +87,11 @@ public partial class WindowManagement : managerNode
 		return window;
 	}
 
-	ManagedViewportWindow createWindowRoot(string name, Control content, WindowPreset preset)
+	ManagedViewportWindow createWindowRoot(string name, Control content, string presetName, WindowPreset preset)
 	{
 		ManagedViewportWindow root = new ManagedViewportWindow();
 		root.Name = name;
+		root.presetName = presetName;
 		root.preset = preset;
 		root.CustomMinimumSize = getRootMinimumSize(content, preset);
 		root.MouseFilter = Control.MouseFilterEnum.Stop;
@@ -106,6 +108,7 @@ public partial class WindowManagement : managerNode
 		insetControl(panel, preset.shadowSize);
 		panel.SetMeta("styleManaged", true);
 		panel.SetMeta("styleType", "windowInternal");
+		panel.SetMeta("windowInternalType", "panel");
 		panel.AddThemeStyleboxOverride("panel", createWindowStyle(preset));
 		root.AddChild(panel);
 
@@ -191,11 +194,53 @@ public partial class WindowManagement : managerNode
 			glowLayer.MouseFilter = Control.MouseFilterEnum.Ignore;
 			glowLayer.SetMeta("styleManaged", true);
 			glowLayer.SetMeta("styleType", "windowInternal");
+			glowLayer.SetMeta("windowInternalType", "glow");
+			glowLayer.SetMeta("windowGlowLayer", layer);
+			glowLayer.SetMeta("windowGlowLayerCount", layerCount);
 			glowLayer.AddThemeStyleboxOverride("panel", createWindowGlowStyle(preset, layer, layerCount));
 			glowRoot.AddChild(glowLayer);
 		}
 
 		return glowRoot;
+	}
+
+	void refreshOpenWindowStyles()
+	{
+		foreach (ManagedViewportWindow window in windows.Values)
+		{
+			if (!GodotObject.IsInstanceValid(window))
+			{
+				continue;
+			}
+			if (!string.IsNullOrEmpty(window.presetName) && presets.ContainsKey(window.presetName))
+			{
+				window.preset = presets[window.presetName];
+			}
+			refreshWindowInternalStyles(window, window.preset);
+		}
+	}
+
+	void refreshWindowInternalStyles(Node node, WindowPreset preset)
+	{
+		if (node is Panel panel && panel.GetMeta("styleType", "").AsString() == "windowInternal")
+		{
+			string internalType = panel.GetMeta("windowInternalType", "panel").AsString();
+			if (internalType == "glow")
+			{
+				int layer = panel.GetMeta("windowGlowLayer", 0).AsInt32();
+				int layerCount = panel.GetMeta("windowGlowLayerCount", 1).AsInt32();
+				panel.AddThemeStyleboxOverride("panel", createWindowGlowStyle(preset, layer, layerCount));
+			}
+			else
+			{
+				panel.AddThemeStyleboxOverride("panel", createWindowStyle(preset));
+			}
+		}
+
+		foreach (Node child in node.GetChildren())
+		{
+			refreshWindowInternalStyles(child, preset);
+		}
 	}
 
 	StyleBoxFlat createWindowGlowStyle(WindowPreset preset, int layer, int layerCount)
@@ -430,17 +475,20 @@ public partial class WindowManagement : managerNode
 	Vector2 getCenteredWindowPosition(Vector2 size)
 	{
 		Vector2 viewportSize = GetViewport().GetVisibleRect().Size;
+		float reservedTop = getReservedTopbarHeight();
+		float availableHeight = Mathf.Max(0f, viewportSize.Y - reservedTop);
 		return new Vector2
 		(
 			Mathf.Max(8f, (viewportSize.X - size.X) * 0.5f),
-			Mathf.Max(8f, (viewportSize.Y - size.Y) * 0.5f)
+			Mathf.Max(reservedTop + 8f, reservedTop + (availableHeight - size.Y) * 0.5f)
 		);
 	}
 
 	Vector2 clampWindowPosition(Vector2 position, Vector2 size)
 	{
 		Vector2 viewportSize = GetViewport().GetVisibleRect().Size;
-		Vector2 margin = new Vector2(8, 8);
+		float reservedTop = getReservedTopbarHeight();
+		Vector2 margin = new Vector2(8, reservedTop + 8f);
 		float maxX = Mathf.Max(margin.X, viewportSize.X - size.X - margin.X);
 		float maxY = Mathf.Max(margin.Y, viewportSize.Y - size.Y - margin.Y);
 
@@ -449,6 +497,11 @@ public partial class WindowManagement : managerNode
 			Mathf.Clamp(position.X, margin.X, maxX),
 			Mathf.Clamp(position.Y, margin.Y, maxY)
 		);
+	}
+
+	float getReservedTopbarHeight()
+	{
+		return mAccess.uiManager == null ? 0f : mAccess.uiManager.getReservedTopbarHeight();
 	}
 
 	public void closeWindow(string name, bool checkUnsaved = true)
@@ -499,6 +552,7 @@ public partial class WindowManagement : managerNode
 public partial class ManagedViewportWindow : Control
 {
 	public Vector2I minimumSize = Vector2I.Zero;
+	public string presetName = "";
 	public WindowPreset preset;
 }
 

@@ -111,10 +111,10 @@ public static class mAccess
 		recycleManager.setup();
 		fileManager.setup();
 		entityFrameworkManager.setup();
-		uiManager.setup();
 		colorManager.setup();
 		styleManager.setup();
 		windowManager.setup();
+		uiManager.setup();
 		spriteCreatorManager.setup();
 		unitCreatorManager.setup();
 		gameManager.setup();

@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Godot;
 
 public partial class ColorManagement : managerNode
@@ -14,8 +12,6 @@ public partial class ColorManagement : managerNode
     public colorPicker picker {get; private set;}
     public string activeColorName = "active";
     public string pickerColorName = "colorSlot0";
-    PackedScene colorPickerScene;
-    ColorPicker activePicker;
 
     public override void setup()
     {
@@ -31,7 +27,6 @@ public partial class ColorManagement : managerNode
         addSavedColor("colorSlot2", new Color(0.08f, 0.28f, 0.9f, 1f));
         addSavedColor("colorSlot3", new Color(1f, 0.72f, 0.12f, 1f));
         picker = new colorPicker();
-        colorPickerScene = mAccess.uiManager.scenes["colorPicker"];
         setPickerColorName(pickerColorName);
     }
     
@@ -124,12 +119,6 @@ public partial class ColorManagement : managerNode
     public Color getActiveColor()
     {
         return colors[activeColorName];
-    }
-    public void openColorPicker(Control owner, string colorName, Vector2 globalPosition)
-    {
-        activePicker = colorPickerScene.Instantiate<ColorPicker>();
-        mAccess.windowManager.openWindowAt("Color Picker", activePicker, globalPosition, "staticMenu", false);
-        activePicker.openForColor(colorName);
     }
     public void commitPickerColorToRecent()
     {

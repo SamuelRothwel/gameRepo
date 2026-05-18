@@ -14,6 +14,8 @@ public partial class StyleManagement : managerNode
 	public List<string> fontNames;
 	public System.Collections.Generic.List<ColorScheme> colorSchemes;
 	const string DefaultFontName = "Xirod";
+	const int BuiltInColorSchemeCount = 3;
+	public bool isSetupComplete { get; private set; }
 	public int activeColorSchemeIndex;
 	public readonly string[] colorSchemeColorNames = new string[]
 	{
@@ -31,6 +33,7 @@ public partial class StyleManagement : managerNode
 
 	public override void setup()
 	{
+		isSetupComplete = false;
 		panelStyles = new Dictionary<string, StyleBoxFlat>();
 		buttonStyles = new Dictionary<string, ButtonVisualStyle>();
 		windowStyles = new Dictionary<string, StyleBoxFlat>();
@@ -48,6 +51,7 @@ public partial class StyleManagement : managerNode
 		setupButtonStyles();
 		setupWindowStyles();
 		mAccess.colorManager.colorChanged += onColorChanged;
+		isSetupComplete = true;
 	}
 
 	void setupColors()
@@ -331,6 +335,13 @@ public partial class StyleManagement : managerNode
 		textStyles[name] = style;
 	}
 
+	public int addColorScheme(string name, Color[] colors)
+	{
+		string schemeName = string.IsNullOrWhiteSpace(name) ? "Custom Scheme" : name.Trim();
+		colorSchemes.Add(new ColorScheme(schemeName, colors));
+		return colorSchemes.Count - 1;
+	}
+
 	public StyleBoxFlat getPanelStyle(string name = "default")
 	{
 		return panelStyles.ContainsKey(name) ? panelStyles[name] : panelStyles["default"];
@@ -419,6 +430,18 @@ public partial class StyleManagement : managerNode
 		}
 
 		activeColorSchemeIndex = Mathf.Clamp(settings.ActiveColorSchemeIndex, 0, colorSchemes.Count - 1);
+		foreach (StoredColorSchemeSettings savedScheme in settings.ColorSchemes)
+		{
+			Color[] colors = savedScheme.Colors
+				.Select(color => color.ToColor())
+				.ToArray();
+			if (colors.Length == 0)
+			{
+				continue;
+			}
+			addColorScheme(savedScheme.Name, colors);
+		}
+		activeColorSchemeIndex = Mathf.Clamp(settings.ActiveColorSchemeIndex, 0, colorSchemes.Count - 1);
 		foreach (KeyValuePair<string, StoredColorValue> savedColor in settings.Colors)
 		{
 			if (colorSchemeColorNames.Contains(savedColor.Key))
@@ -444,12 +467,14 @@ public partial class StyleManagement : managerNode
 		}
 	}
 
-	public StoredGameSettings createStoredGameSettings(float masterVolumePercent)
+	public StoredGameSettings createStoredGameSettings(float masterVolumePercent, Vector2I resolution)
 	{
 		StoredGameSettings settings = new StoredGameSettings
 		{
 			ActiveColorSchemeIndex = activeColorSchemeIndex,
-			MasterVolumePercent = masterVolumePercent
+			MasterVolumePercent = masterVolumePercent,
+			ResolutionWidth = resolution.X,
+			ResolutionHeight = resolution.Y
 		};
 
 		foreach (string colorName in colorSchemeColorNames)
@@ -459,6 +484,10 @@ public partial class StyleManagement : managerNode
 		foreach (KeyValuePair<string, TextStyle> textStyle in textStyles)
 		{
 			settings.TextStyles[textStyle.Key] = new StoredTextStyleSettings(textStyle.Value);
+		}
+		foreach (ColorScheme scheme in colorSchemes.Skip(BuiltInColorSchemeCount))
+		{
+			settings.ColorSchemes.Add(new StoredColorSchemeSettings(scheme));
 		}
 
 		return settings;
@@ -480,10 +509,6 @@ public partial class StyleManagement : managerNode
 
 	public void applyButtonStyle(Button button, string styleName = "menu", string textStyleName = "default")
 	{
-		button.SetMeta("styleManaged", true);
-		button.SetMeta("styleType", "button");
-		button.SetMeta("styleName", styleName);
-		button.SetMeta("textStyleName", textStyleName);
 		ButtonVisualStyle style = getButtonStyle(styleName);
 		button.AddThemeStyleboxOverride("normal", style.normal);
 		button.AddThemeStyleboxOverride("hover", style.hover);
@@ -491,6 +516,11 @@ public partial class StyleManagement : managerNode
 		button.AddThemeStyleboxOverride("disabled", style.disabled);
 		button.AddThemeStyleboxOverride("focus", style.hover);
 		applyTextStyle(button, textStyleName);
+		button.SetMeta("styleManaged", true);
+		button.SetMeta("styleType", "button");
+		button.SetMeta("styleName", styleName);
+		button.SetMeta("buttonStyleName", styleName);
+		button.SetMeta("buttonTextStyleName", textStyleName);
 	}
 
 	public void applyWindowStyle(Control control, string styleName = "default")
@@ -547,6 +577,11 @@ public partial class StyleManagement : managerNode
 
 	public void applyUniversalStyleTree(Node root, bool forceRefresh = false)
 	{
+		if (!isSetupComplete)
+		{
+			return;
+		}
+
 		if (root is Control control)
 		{
 			applyUniversalStyle(control, forceRefresh);
@@ -604,9 +639,12 @@ public partial class StyleManagement : managerNode
 	{
 		button.SetMeta("styleManaged", true);
 		button.SetMeta("styleType", "swatch");
+		button.SetMeta("swatchColor", swatchColor);
+		button.SetMeta("swatchCornerRadius", cornerRadius);
 		button.AddThemeStyleboxOverride("normal", createSwatchStyle(swatchColor, cornerRadius));
 		button.AddThemeStyleboxOverride("hover", createSwatchStyle(swatchColor.Lightened(0.15f), cornerRadius));
 		button.AddThemeStyleboxOverride("pressed", createSwatchStyle(swatchColor.Darkened(0.15f), cornerRadius));
+		button.AddThemeStyleboxOverride("disabled", createSwatchStyle(swatchColor.Darkened(0.25f), cornerRadius));
 		button.AddThemeStyleboxOverride("focus", createSwatchStyle(swatchColor.Lightened(0.15f), cornerRadius));
 	}
 
@@ -621,8 +659,15 @@ public partial class StyleManagement : managerNode
 		string styleName = control.GetMeta("styleName", "default").AsString();
 		if (styleType == "button" && control is Button button)
 		{
-			string textStyleName = control.GetMeta("textStyleName", "default").AsString();
-			applyButtonStyle(button, styleName, textStyleName);
+			string buttonStyleName = control.GetMeta("buttonStyleName", styleName).AsString();
+			string textStyleName = control.GetMeta("buttonTextStyleName", control.GetMeta("textStyleName", "default")).AsString();
+			applyButtonStyle(button, buttonStyleName, textStyleName);
+		}
+		else if (styleType == "swatch" && control is Button swatchButton)
+		{
+			Color swatchColor = control.GetMeta("swatchColor", Colors.White).AsColor();
+			int cornerRadius = control.GetMeta("swatchCornerRadius", 4).AsInt32();
+			applySwatchStyle(swatchButton, swatchColor, cornerRadius);
 		}
 		else if (styleType == "text")
 		{

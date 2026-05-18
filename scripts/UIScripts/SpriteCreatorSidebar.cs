@@ -88,7 +88,7 @@ public partial class SpriteCreatorSidebar : VBoxContainer
             else if (button.ButtonIndex == MouseButton.Right)
             {
                 Vector2 pickerPosition = new Vector2(GlobalPosition.X + Size.X + 16f, colorButton.GlobalPosition.Y);
-                mAccess.colorManager.openColorPicker(this, colorName, pickerPosition);
+                mAccess.uiManager.openColorPicker(this, colorName, pickerPosition);
                 AcceptEvent();
             }
         }

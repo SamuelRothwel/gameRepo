@@ -75,11 +75,17 @@ namespace coolbeats.scripts.managerScripts
         }
         public Vector2 scaleCoords(Vector2 coords)
         {
+            coords = getGameWindowPosition(coords);
             return coords/camera.Zoom + cameraOffset + camera.Position;
         }
         public Vector2 scaleLocalCoords(Vector2 coords)
         {
+            coords = getGameWindowPosition(coords);
             return coords/camera.Zoom + cameraOffset;
+        }
+        Vector2 getGameWindowPosition(Vector2 coords)
+        {
+            return mAccess.uiManager == null ? coords : mAccess.uiManager.toGameWindowPosition(coords);
         }
         public override async void _UnhandledInput(InputEvent inp)
         {
