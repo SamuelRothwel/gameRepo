@@ -13,8 +13,6 @@ public partial class Gun : Node2D, subComponent
 	public double Delta;
 	public string gunType = "Minigun";
 	public AnimationPlayer animator;
-	public Sprite2D[] _components;
-	public CircularEnumerator<Sprite2D> gunComponents;
 	public DynamicAnimator dynamicAnimator;
 	public double rotation = 0;
 	public bool shooting = false;
@@ -24,10 +22,20 @@ public partial class Gun : Node2D, subComponent
 
     public override void _Ready()
 	{
-		_components = GetChildren().Where(x => x is Sprite2D).Select(x => (Sprite2D)x).ToArray();
-		gunComponents = new CircularEnumerator<Sprite2D>(ref _components);
 		animator = GetChild<AnimationPlayer>(0);
 		animator.SpeedScale = guns[gunType].firerate;
+	}
+	public void setup()
+	{
+		GunComponentRing componentRing = new GunComponentRing
+		{
+			Name = "GunComponentRing",
+			gun = this,
+			parent = parent
+		};
+		AddChild(componentRing);
+		componentRing.setup();
+		parent.subComponents.Register(componentRing, componentRing.type);
 	}
     public void fire(Guid t)
 	{
@@ -51,5 +59,20 @@ public partial class Gun : Node2D, subComponent
 	public void handleAnimationEvent(string eventName)
 	{
 		guns[gunType].handleAnimationEvent(this, eventName);
+	}
+}
+
+public partial class GunComponentRing : Node, subComponent
+{
+	public Gun gun;
+	public Sprite2D[] components;
+	public CircularEnumerator<Sprite2D> circularComponents;
+	public Type type => typeof(GunComponentRing);
+	public componentController parent { get; set; }
+
+	public void setup()
+	{
+		components = gun.GetChildren().OfType<Sprite2D>().ToArray();
+		circularComponents = new CircularEnumerator<Sprite2D>(ref components);
 	}
 }

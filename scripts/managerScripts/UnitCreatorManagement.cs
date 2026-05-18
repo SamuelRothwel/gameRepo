@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using coolbeats.scripts.logicScripts.AttachedLogic.Components;
 
 public partial class UnitCreatorManagement : managerNode
 {
@@ -48,7 +49,7 @@ public partial class UnitCreatorManagement : managerNode
 		Func<IEnumerable<IUnitBehavior>> behaviorFactory = mAccess.unitManager == null
 			? () => Array.Empty<IUnitBehavior>()
 			: mAccess.unitManager.CreateKnownBehaviors;
-		activeUnit = mAccess.entityFrameworkManager.ToUnitDefinition(storedUnit, behaviorFactory);
+		activeUnit = EnsureFallbackComponents(mAccess.entityFrameworkManager.ToUnitDefinition(storedUnit, behaviorFactory));
 		mAccess.unitManager?.RegisterUnitDefinition(activeUnit);
 		currentUnitVersion = storedUnit.Version;
 		savedUnitVersion = storedUnit.Version;
@@ -125,7 +126,9 @@ public partial class UnitCreatorManagement : managerNode
 		savedUnitsList.CustomMinimumSize = new Vector2(300, 0);
 		scroll.AddChild(savedUnitsList);
 
-		List<StoredUnit> units = mAccess.entityFrameworkManager.GetUnits();
+		List<StoredUnit> units = mAccess.entityFrameworkManager.GetUnits()
+			.Where(unit => unit.Name != "marineGun")
+			.ToList();
 		if (units.Count == 0)
 		{
 			Label emptyLabel = new Label();
@@ -249,6 +252,11 @@ public partial class UnitCreatorManagement : managerNode
 
 	UnitDefinition EnsureFallbackComponents(UnitDefinition definition)
 	{
+		if (definition == null)
+		{
+			return null;
+		}
+
 		if (definition.Name == "marineGun" && definition.SpriteAttachments.Count == 0)
 		{
 			definition.SpriteAttachments.Add(new UnitSpriteAttachmentData
@@ -258,8 +266,68 @@ public partial class UnitCreatorManagement : managerNode
 				Order = 0
 			});
 		}
+		if (definition.Name == "marine")
+		{
+			NormalizeMarineComponents(definition);
+		}
 
 		return definition;
+	}
+
+	void NormalizeMarineComponents(UnitDefinition definition)
+	{
+		if (definition.ComponentAttachments.Any(component => component.Name == "gun"))
+		{
+			return;
+		}
+
+		UnitSubUnitAttachmentData gunSubUnit = definition.SubUnitAttachments
+			.FirstOrDefault(subUnit => subUnit.Name == "gun" || GetUnitDefinition(subUnit.ChildUnitId)?.Name == "marineGun");
+		Vector2 gunPosition = gunSubUnit?.Position ?? new Vector2(13, -10);
+		if (gunSubUnit != null)
+		{
+			definition.SubUnitAttachments.Remove(gunSubUnit);
+		}
+
+		definition.ComponentAttachments.Add(CreateGunComponent(gunPosition));
+	}
+
+	UnitComponentAttachmentData CreateGunComponent(Vector2 position)
+	{
+		UnitComponentAttachmentData gun = new UnitComponentAttachmentData
+		{
+			Name = "gun",
+			TypeName = typeof(componentGun).FullName ?? nameof(componentGun),
+			Position = position,
+			Order = 0,
+			Traits = new List<UnitDataTrait>
+			{
+				new UnitDataTrait { Key = "role", ValueType = "text", ValueJson = JsonSerializer.Serialize("weapon") },
+				new UnitDataTrait { Key = "automaticBehaviour", ValueType = "text", ValueJson = JsonSerializer.Serialize("none") },
+				new UnitDataTrait { Key = "positionX", ValueType = "number", ValueJson = JsonSerializer.Serialize(position.X) },
+				new UnitDataTrait { Key = "positionY", ValueType = "number", ValueJson = JsonSerializer.Serialize(position.Y) }
+			}
+		};
+
+		gun.ChildComponents.Add(new UnitComponentAttachmentData
+		{
+			Name = "circular sprites",
+			TypeName = typeof(GunComponentRing).FullName ?? nameof(GunComponentRing),
+			Order = 0,
+			Traits = new List<UnitDataTrait>
+			{
+				new UnitDataTrait { Key = "spriteIterator", ValueType = "text", ValueJson = JsonSerializer.Serialize("circular") },
+				new UnitDataTrait { Key = "spriteCount", ValueType = "number", ValueJson = JsonSerializer.Serialize(3f) }
+			},
+			SpriteAttachments = new List<UnitSpriteAttachmentData>
+			{
+				new UnitSpriteAttachmentData { Name = "barrel", SpriteSetKey = "GunBarrel", Order = 0 },
+				new UnitSpriteAttachmentData { Name = "barrel", SpriteSetKey = "GunBarrel", Order = 1 },
+				new UnitSpriteAttachmentData { Name = "barrel", SpriteSetKey = "GunBarrel", Order = 2 }
+			}
+		});
+
+		return gun;
 	}
 
 	Control CreateSavedSpriteRow(StoredSprite storedSprite)

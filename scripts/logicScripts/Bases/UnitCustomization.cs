@@ -97,6 +97,19 @@ public class UnitSubUnitAttachmentData
     public List<UnitDataTrait> Traits { get; set; } = new();
 }
 
+public class UnitComponentAttachmentData
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "";
+    public string TypeName { get; set; } = "";
+    public Vector2 Position { get; set; }
+    public float Rotation { get; set; }
+    public int Order { get; set; }
+    public List<UnitDataTrait> Traits { get; set; } = new();
+    public List<UnitSpriteAttachmentData> SpriteAttachments { get; set; } = new();
+    public List<UnitComponentAttachmentData> ChildComponents { get; set; } = new();
+}
+
 public class UnitBehaviorProfile
 {
     readonly Dictionary<string, List<string>> commandBehaviors = new();
@@ -269,6 +282,7 @@ public class UnitDefinition
     public List<UnitAbilityData> Abilities { get; set; } = new();
     public List<UnitSpriteAttachmentData> SpriteAttachments { get; set; } = new();
     public List<UnitSubUnitAttachmentData> SubUnitAttachments { get; set; } = new();
+    public List<UnitComponentAttachmentData> ComponentAttachments { get; set; } = new();
 
     public void ApplyTo(unitControler unit)
     {

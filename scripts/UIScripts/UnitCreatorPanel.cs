@@ -256,7 +256,9 @@ public partial class UnitCreatorPanel : Control
 		unitList.AddThemeConstantOverride("separation", 6);
 		scroll.AddChild(unitList);
 
-		List<StoredUnit> units = mAccess.entityFrameworkManager.GetUnits();
+		List<StoredUnit> units = mAccess.entityFrameworkManager.GetUnits()
+			.Where(unit => unit.Name != "marineGun")
+			.ToList();
 		if (units.Count == 0)
 		{
 			Label emptyLabel = new Label();
@@ -917,6 +919,13 @@ public partial class UnitCreatorPanel : Control
 		{
 			return GetSpriteMetadataTypes();
 		}
+		if (selectedPart.StartsWith("component:"))
+		{
+			UnitComponentAttachmentData component = GetComponentForPath(pathParts);
+			return component == null
+				? new List<StoredUnitComponentType>()
+				: GetComponentMetadataTypes(component.TypeName);
+		}
 
 		UnitDefinition selectedDefinition = GetDefinitionForPath(pathParts);
 		return selectedDefinition == null
@@ -933,6 +942,13 @@ public partial class UnitCreatorPanel : Control
 
 		return mAccess.unitManager.unitVariableMetadata.Values
 			.Where(type => type.Kind == "unit" && TypeMatchesUnitName(type, definition.Name))
+			.ToList();
+	}
+
+	List<StoredUnitComponentType> GetComponentMetadataTypes(string typeName)
+	{
+		return mAccess.unitManager.unitVariableMetadata.Values
+			.Where(type => type.TypeName == typeName)
 			.ToList();
 	}
 
@@ -984,6 +1000,44 @@ public partial class UnitCreatorPanel : Control
 		}
 
 		return currentDefinition;
+	}
+
+	UnitComponentAttachmentData GetComponentForPath(string[] pathParts)
+	{
+		UnitDefinition currentDefinition = mAccess.unitCreatorManager.activeUnit;
+		UnitComponentAttachmentData currentComponent = null;
+		foreach (string pathPart in pathParts.Skip(1))
+		{
+			if (pathPart.StartsWith("subUnit:"))
+			{
+				if (!Guid.TryParse(pathPart["subUnit:".Length..], out Guid subUnitId))
+				{
+					return currentComponent;
+				}
+
+				UnitSubUnitAttachmentData subUnit = currentDefinition?.SubUnitAttachments.FirstOrDefault(subUnit => subUnit.Id == subUnitId);
+				if (subUnit == null)
+				{
+					return currentComponent;
+				}
+
+				currentDefinition = mAccess.unitCreatorManager.GetUnitDefinition(subUnit.ChildUnitId);
+				currentComponent = null;
+				continue;
+			}
+
+			if (!pathPart.StartsWith("component:") || !Guid.TryParse(pathPart["component:".Length..], out Guid componentId))
+			{
+				continue;
+			}
+
+			List<UnitComponentAttachmentData> components = currentComponent == null
+				? currentDefinition?.ComponentAttachments
+				: currentComponent.ChildComponents;
+			currentComponent = components?.FirstOrDefault(component => component.Id == componentId);
+		}
+
+		return currentComponent;
 	}
 
 	void RefreshAnimationEditor()
@@ -1264,10 +1318,42 @@ public partial class UnitCreatorPanel : Control
 			AddPreviewSprite(sprite, origin);
 		}
 
+		foreach (UnitComponentAttachmentData component in definition.ComponentAttachments.OrderBy(component => component.Order))
+		{
+			AddComponentPreview(component, origin);
+		}
+
 		foreach (UnitSubUnitAttachmentData subUnit in definition.SubUnitAttachments.OrderBy(subUnit => subUnit.Order))
 		{
 			AddSubUnitPreview(subUnit, origin);
 		}
+	}
+
+	void AddComponentPreview(UnitComponentAttachmentData component, Vector2 origin)
+	{
+		Vector2 componentOrigin = origin + component.Position;
+		foreach (UnitSpriteAttachmentData sprite in component.SpriteAttachments.OrderBy(sprite => sprite.Order))
+		{
+			AddPreviewSprite(sprite, componentOrigin + GetComponentSpriteOffset(component, sprite));
+		}
+
+		foreach (UnitComponentAttachmentData childComponent in component.ChildComponents.OrderBy(child => child.Order))
+		{
+			AddComponentPreview(childComponent, componentOrigin);
+		}
+	}
+
+	Vector2 GetComponentSpriteOffset(UnitComponentAttachmentData component, UnitSpriteAttachmentData sprite)
+	{
+		UnitDataTrait iteratorTrait = component.Traits.FirstOrDefault(trait => trait.Key == "spriteIterator" && trait.ValueJson.Contains("circular"));
+		if (iteratorTrait == null)
+		{
+			return Vector2.Zero;
+		}
+
+		int spriteCount = Math.Max(1, component.SpriteAttachments.Count);
+		float angle = sprite.Order * MathF.Tau / spriteCount;
+		return new Vector2(Mathf.Sin(angle) * 5f, 0);
 	}
 
 	void AddSubUnitPreview(UnitSubUnitAttachmentData subUnit, Vector2 origin)
@@ -1340,6 +1426,16 @@ public partial class UnitCreatorPanel : Control
 			hasBounds = true;
 		}
 
+		foreach (UnitComponentAttachmentData component in childDefinition.ComponentAttachments)
+		{
+			foreach (Rect2 componentBounds in GetComponentPreviewBounds(component, origin + subUnit.Position))
+			{
+				Rect2 localBounds = new Rect2(componentBounds.Position + previewLayer.Size / 2f, componentBounds.Size);
+				bounds = hasBounds ? bounds.Merge(localBounds) : localBounds;
+				hasBounds = true;
+			}
+		}
+
 		foreach (UnitSubUnitAttachmentData childSubUnit in childDefinition.SubUnitAttachments)
 		{
 			Rect2 childBounds = GetSubUnitPreviewBounds(childSubUnit, origin + subUnit.Position);
@@ -1353,6 +1449,27 @@ public partial class UnitCreatorPanel : Control
 		}
 
 		return hasBounds ? bounds : new Rect2(subUnit.Position + previewLayer.Size / 2f, Vector2.One);
+	}
+
+	IEnumerable<Rect2> GetComponentPreviewBounds(UnitComponentAttachmentData component, Vector2 origin)
+	{
+		Vector2 componentOrigin = origin + component.Position;
+		foreach (UnitSpriteAttachmentData sprite in component.SpriteAttachments)
+		{
+			Texture2D texture = mAccess.unitCreatorManager.CreateAttachmentPreview(sprite);
+			if (texture != null)
+			{
+				yield return GetCenteredSpritePreviewBounds(sprite, texture, componentOrigin + GetComponentSpriteOffset(component, sprite));
+			}
+		}
+
+		foreach (UnitComponentAttachmentData childComponent in component.ChildComponents)
+		{
+			foreach (Rect2 bounds in GetComponentPreviewBounds(childComponent, componentOrigin))
+			{
+				yield return bounds;
+			}
+		}
 	}
 
 	Rect2 GetCenteredSpritePreviewBounds(UnitSpriteAttachmentData sprite, Texture2D texture, Vector2 origin)
@@ -1398,6 +1515,10 @@ public partial class UnitCreatorPanel : Control
 		{
 			AddComponentRow(sprite.Name, path + "/sprite:" + sprite.Id, depth + 1, false, false, null);
 		}
+		foreach (UnitComponentAttachmentData component in definition.ComponentAttachments.OrderBy(component => component.Order))
+		{
+			AddComponentAttachmentRows(component, path + "/component:" + component.Id, depth + 1);
+		}
 		foreach (UnitSubUnitAttachmentData subUnit in definition.SubUnitAttachments.OrderBy(subUnit => subUnit.Order))
 		{
 			UnitDefinition childDefinition = mAccess.unitCreatorManager.GetUnitDefinition(subUnit.ChildUnitId);
@@ -1409,7 +1530,7 @@ public partial class UnitCreatorPanel : Control
 
 	void AddSubUnitComponentRows(UnitSubUnitAttachmentData subUnit, UnitDefinition childDefinition, string childName, string path, int depth, HashSet<Guid> visitedUnits)
 	{
-		bool hasChildren = childDefinition != null && (childDefinition.SpriteAttachments.Count > 0 || childDefinition.SubUnitAttachments.Count > 0);
+		bool hasChildren = childDefinition != null && (childDefinition.SpriteAttachments.Count > 0 || childDefinition.ComponentAttachments.Count > 0 || childDefinition.SubUnitAttachments.Count > 0);
 		bool expanded = IsExpanded(path);
 		AddComponentRow(subUnit.Name + " (" + childName + ")", path, depth, hasChildren, expanded, hasChildren ? () => ToggleExpanded(path) : null);
 
@@ -1423,11 +1544,35 @@ public partial class UnitCreatorPanel : Control
 		{
 			AddComponentRow(sprite.Name, path + "/sprite:" + sprite.Id, depth + 1, false, false, null);
 		}
+		foreach (UnitComponentAttachmentData component in childDefinition.ComponentAttachments.OrderBy(component => component.Order))
+		{
+			AddComponentAttachmentRows(component, path + "/component:" + component.Id, depth + 1);
+		}
 		foreach (UnitSubUnitAttachmentData childSubUnit in childDefinition.SubUnitAttachments.OrderBy(subUnit => subUnit.Order))
 		{
 			UnitDefinition grandchildDefinition = mAccess.unitCreatorManager.GetUnitDefinition(childSubUnit.ChildUnitId);
 			string grandchildName = grandchildDefinition == null ? "Unknown Unit" : grandchildDefinition.Name;
 			AddSubUnitComponentRows(childSubUnit, grandchildDefinition, grandchildName, path + "/subUnit:" + childSubUnit.Id, depth + 1, new HashSet<Guid>(visitedUnits));
+		}
+	}
+
+	void AddComponentAttachmentRows(UnitComponentAttachmentData component, string path, int depth)
+	{
+		bool hasChildren = component.SpriteAttachments.Count > 0 || component.ChildComponents.Count > 0;
+		bool expanded = IsExpanded(path);
+		AddComponentRow(component.Name, path, depth, hasChildren, expanded, hasChildren ? () => ToggleExpanded(path) : null);
+		if (!hasChildren || !expanded)
+		{
+			return;
+		}
+
+		foreach (UnitSpriteAttachmentData sprite in component.SpriteAttachments.OrderBy(sprite => sprite.Order))
+		{
+			AddComponentRow(sprite.Name, path + "/sprite:" + sprite.Id, depth + 1, false, false, null);
+		}
+		foreach (UnitComponentAttachmentData childComponent in component.ChildComponents.OrderBy(child => child.Order))
+		{
+			AddComponentAttachmentRows(childComponent, path + "/component:" + childComponent.Id, depth + 1);
 		}
 	}
 

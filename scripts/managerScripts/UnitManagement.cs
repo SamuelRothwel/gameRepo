@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
+using coolbeats.scripts.logicScripts.AttachedLogic.Components;
 using Godot;
 
 namespace coolbeats.scripts.managerScripts
@@ -46,11 +48,7 @@ namespace coolbeats.scripts.managerScripts
         }
         public void setupUnitDefinitions()
         {
-            UnitDefinition marineGun = createDefaultMarineGunDefinition();
-            RegisterUnitDefinition(marineGun);
-            mAccess.entityFrameworkManager?.EnsureUnitDefinition(marineGun);
-
-            UnitDefinition marine = createDefaultMarineDefinition(marineGun.Id);
+            UnitDefinition marine = createDefaultMarineDefinition();
             RegisterUnitDefinition(marine);
             mAccess.entityFrameworkManager?.EnsureUnitDefinition(marine);
 
@@ -59,34 +57,7 @@ namespace coolbeats.scripts.managerScripts
                 RegisterUnitDefinition(storedDefinition);
             }
         }
-        UnitDefinition createDefaultMarineGunDefinition()
-        {
-            UnitDefinition marineGun = new UnitDefinition
-            {
-                Name = "marineGun",
-                CommandType = "",
-                Radius = 0,
-                DetectionRadius = 0,
-                MaxHP = 1,
-                BehaviorFactory = CreateKnownBehaviors
-            };
-            marineGun.DescriptiveTraits["role"] = "weapon";
-            marineGun.DescriptiveTraits["automaticBehaviour"] = "none";
-            marineGun.SpriteAttachments.Add(new UnitSpriteAttachmentData
-            {
-                Name = "barrel",
-                SpriteSetKey = "GunBarrel",
-                Order = 0
-            });
-            marineGun.Abilities.Add(new UnitAbilityData
-            {
-                AbilityName = "fire",
-                BehaviorName = "fire",
-                ParametersJson = "{}"
-            });
-            return marineGun;
-        }
-        UnitDefinition createDefaultMarineDefinition(Guid gunDefinitionId)
+        UnitDefinition createDefaultMarineDefinition()
         {
             UnitBehaviorProfile marineBehaviors = new UnitBehaviorProfile();
             marineBehaviors.SetCommand("move", "chaseTarget");
@@ -119,15 +90,60 @@ namespace coolbeats.scripts.managerScripts
                     new UnitDataTrait { Key = "hitboxEnabled", ValueType = "bool", ValueJson = "true" }
                 }
             });
-            marine.SubUnitAttachments.Add(new UnitSubUnitAttachmentData
+            marine.ComponentAttachments.Add(CreateMarineGunComponent());
+            return marine;
+        }
+        UnitComponentAttachmentData CreateMarineGunComponent()
+        {
+            UnitComponentAttachmentData gun = new UnitComponentAttachmentData
             {
-                ChildUnitId = gunDefinitionId,
                 Name = "gun",
+                TypeName = typeof(componentGun).FullName ?? nameof(componentGun),
                 Position = new Vector2(13, -10),
                 Order = 0,
-                ParametersJson = "{}"
+                Traits = new List<UnitDataTrait>
+                {
+                    new UnitDataTrait { Key = "role", ValueType = "text", ValueJson = JsonSerializer.Serialize("weapon") },
+                    new UnitDataTrait { Key = "automaticBehaviour", ValueType = "text", ValueJson = JsonSerializer.Serialize("none") },
+                    new UnitDataTrait { Key = "positionX", ValueType = "number", ValueJson = JsonSerializer.Serialize(13f) },
+                    new UnitDataTrait { Key = "positionY", ValueType = "number", ValueJson = JsonSerializer.Serialize(-10f) }
+                }
+            };
+
+            gun.ChildComponents.Add(new UnitComponentAttachmentData
+            {
+                Name = "circular sprites",
+                TypeName = typeof(GunComponentRing).FullName ?? nameof(GunComponentRing),
+                Order = 0,
+                Traits = new List<UnitDataTrait>
+                {
+                    new UnitDataTrait { Key = "spriteIterator", ValueType = "text", ValueJson = JsonSerializer.Serialize("circular") },
+                    new UnitDataTrait { Key = "spriteCount", ValueType = "number", ValueJson = JsonSerializer.Serialize(3f) }
+                },
+                SpriteAttachments = new List<UnitSpriteAttachmentData>
+                {
+                    new UnitSpriteAttachmentData
+                    {
+                        Name = "barrel",
+                        SpriteSetKey = "GunBarrel",
+                        Order = 0
+                    },
+                    new UnitSpriteAttachmentData
+                    {
+                        Name = "barrel",
+                        SpriteSetKey = "GunBarrel",
+                        Order = 1
+                    },
+                    new UnitSpriteAttachmentData
+                    {
+                        Name = "barrel",
+                        SpriteSetKey = "GunBarrel",
+                        Order = 2
+                    }
+                }
             });
-            return marine;
+
+            return gun;
         }
         public IEnumerable<IUnitBehavior> CreateKnownBehaviors()
         {

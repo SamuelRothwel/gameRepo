@@ -110,8 +110,9 @@ public class gunTemplate
 				return;
 			}
 
+			GunComponentRing componentRing = gun.parent.subComponents.Get<GunComponentRing>();
 			gun.dynamicAnimator = mAccess.animationManager.RotateCircularSprites(
-				gun.gunComponents,
+				componentRing.circularComponents,
 				gun.handleAnimationEvent,
 				spinSpeed(gun));
 		}
