@@ -9,12 +9,16 @@ public partial class UnitCreatorPanel : Control
 	const float LibraryDragThreshold = 8f;
 	VBoxContainer tools;
 	VBoxContainer componentsList;
+	TabContainer bottomTabs;
+	VBoxContainer animationList;
+	VBoxContainer animationEditor;
 	Control previewArea;
 	Control previewLayer;
 	UnitSpriteAttachmentData draggedSprite;
 	UnitSubUnitAttachmentData draggedSubUnit;
 	StoredSprite draggedLibrarySprite;
 	StoredUnit draggedLibraryUnit;
+	StoredAnimation selectedAnimation;
 	bool libraryDragActive;
 	TextureRect dragGhost;
 	string selectedComponentPath;
@@ -102,16 +106,22 @@ public partial class UnitCreatorPanel : Control
 		bottomPanel.OffsetBottom = -12;
 		AddChild(bottomPanel);
 
-		VBoxContainer inspector = new VBoxContainer();
-		inspector.AddThemeConstantOverride("separation", 8);
-		bottomPanel.AddChild(inspector);
+		bottomTabs = new TabContainer();
+		bottomTabs.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		bottomTabs.SizeFlagsVertical = SizeFlags.ExpandFill;
+		bottomPanel.AddChild(bottomTabs);
 
-		inspector.AddChild(CreatePanelTitle("Inspector"));
+		VBoxContainer inspector = new VBoxContainer();
+		inspector.Name = "Inspector";
+		inspector.AddThemeConstantOverride("separation", 8);
+		bottomTabs.AddChild(inspector);
 
 		Label info = new Label();
 		info.Text = "Select a component";
 		mAccess.styleManager.applyTextStyle(info, "muted");
 		inspector.AddChild(info);
+
+		bottomTabs.AddChild(CreateAnimationTab());
 	}
 
 	void ShowMainTools()
@@ -279,6 +289,54 @@ public partial class UnitCreatorPanel : Control
 		Control spacer = new Control();
 		spacer.SizeFlagsVertical = SizeFlags.ExpandFill;
 		return spacer;
+	}
+
+	Control CreateAnimationTab()
+	{
+		HSplitContainer split = new HSplitContainer();
+		split.Name = "Animation";
+		split.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		split.SizeFlagsVertical = SizeFlags.ExpandFill;
+		split.SplitOffset = 210;
+
+		VBoxContainer left = new VBoxContainer();
+		left.CustomMinimumSize = new Vector2(200, 0);
+		left.AddThemeConstantOverride("separation", 6);
+		split.AddChild(left);
+
+		HBoxContainer header = new HBoxContainer();
+		left.AddChild(header);
+
+		Label title = CreatePanelTitle("Animations");
+		title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		header.AddChild(title);
+
+		Button addButton = new Button();
+		addButton.Text = "+";
+		addButton.CustomMinimumSize = new Vector2(30, 28);
+		mAccess.styleManager.applyButtonStyle(addButton, "secondary");
+		addButton.Pressed += CreateNewDynamicAnimation;
+		header.AddChild(addButton);
+
+		ScrollContainer listScroll = new ScrollContainer();
+		listScroll.SizeFlagsVertical = SizeFlags.ExpandFill;
+		left.AddChild(listScroll);
+
+		animationList = new VBoxContainer();
+		animationList.AddThemeConstantOverride("separation", 4);
+		listScroll.AddChild(animationList);
+
+		ScrollContainer editorScroll = new ScrollContainer();
+		editorScroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		editorScroll.SizeFlagsVertical = SizeFlags.ExpandFill;
+		split.AddChild(editorScroll);
+
+		animationEditor = new VBoxContainer();
+		animationEditor.AddThemeConstantOverride("separation", 8);
+		editorScroll.AddChild(animationEditor);
+
+		RefreshAnimationsTab();
+		return split;
 	}
 
 	Control CreateSavedUnitRow(StoredUnit storedUnit)
@@ -722,10 +780,464 @@ public partial class UnitCreatorPanel : Control
 		return label;
 	}
 
+	void RefreshAnimationsTab()
+	{
+		if (animationList == null || animationEditor == null)
+		{
+			return;
+		}
+
+		ClearChildren(animationList);
+		List<StoredAnimation> animations = GetUsableAnimations();
+		if (selectedAnimation != null)
+		{
+			selectedAnimation = animations.FirstOrDefault(animation => animation.Id == selectedAnimation.Id);
+		}
+
+		if (animations.Count == 0)
+		{
+			Label empty = new Label();
+			empty.Text = "No usable animations";
+			mAccess.styleManager.applyTextStyle(empty, "muted");
+			animationList.AddChild(empty);
+		}
+		else
+		{
+			foreach (StoredAnimation animation in animations)
+			{
+				animationList.AddChild(CreateAnimationRow(animation));
+			}
+		}
+
+		RefreshAnimationEditor();
+	}
+
+	Control CreateAnimationRow(StoredAnimation animation)
+	{
+		Button button = new Button();
+		button.Text = animation.Name;
+		button.Alignment = HorizontalAlignment.Left;
+		button.CustomMinimumSize = new Vector2(180, 28);
+		mAccess.styleManager.applyButtonStyle(button, selectedAnimation?.Id == animation.Id ? "selected" : "secondary");
+		button.Pressed += () =>
+		{
+			selectedAnimation = animation;
+			RefreshAnimationsTab();
+		};
+		return button;
+	}
+
+	List<StoredAnimation> GetUsableAnimations()
+	{
+		if (mAccess.entityFrameworkManager == null)
+		{
+			return new List<StoredAnimation>();
+		}
+
+		HashSet<string> usableTypeNames = GetUsableMetadataTypeNames();
+		return mAccess.entityFrameworkManager.GetAnimations()
+			.Where(animation => AnimationMatchesUnitMetadata(animation, usableTypeNames))
+			.OrderBy(animation => animation.Name)
+			.ToList();
+	}
+
+	bool AnimationMatchesUnitMetadata(StoredAnimation animation, HashSet<string> usableTypeNames)
+	{
+		if (animation.PropertyRequirements == null || animation.PropertyRequirements.Count == 0)
+		{
+			return true;
+		}
+
+		return animation.PropertyRequirements.All(requirement =>
+			string.IsNullOrEmpty(requirement.TargetTypeName) ||
+			usableTypeNames.Contains(requirement.TargetTypeName));
+	}
+
+	HashSet<string> GetUsableMetadataTypeNames()
+	{
+		HashSet<string> typeNames = new HashSet<string>();
+		foreach (StoredUnitComponentType metadata in GetUsableMetadataTypes())
+		{
+			typeNames.Add(metadata.TypeName);
+			if (!string.IsNullOrEmpty(metadata.DirectBaseTypeName))
+			{
+				typeNames.Add(metadata.DirectBaseTypeName);
+			}
+			foreach (StoredUnitComponentObjectMember member in metadata.ObjectMembers)
+			{
+				if (!string.IsNullOrEmpty(member.MemberTypeName))
+				{
+					typeNames.Add(member.MemberTypeName);
+				}
+				if (!string.IsNullOrEmpty(member.ElementTypeName))
+				{
+					typeNames.Add(member.ElementTypeName);
+				}
+			}
+		}
+		return typeNames;
+	}
+
+	List<StoredUnitComponentType> GetUsableMetadataTypes()
+	{
+		if (mAccess.unitManager?.unitVariableMetadata == null)
+		{
+			return new List<StoredUnitComponentType>();
+		}
+
+		List<StoredUnitComponentType> selectedTypes = GetSelectedMetadataTypes();
+		if (selectedTypes.Count > 0)
+		{
+			return selectedTypes
+				.OrderBy(type => type.DisplayName)
+				.ToList();
+		}
+
+		return mAccess.unitManager.unitVariableMetadata.Values
+			.Where(type => type.Kind == "unit")
+			.OrderBy(type => type.DisplayName)
+			.ToList();
+	}
+
+	List<StoredUnitComponentType> GetSelectedMetadataTypes()
+	{
+		if (mAccess.unitManager?.unitVariableMetadata == null || mAccess.unitCreatorManager?.activeUnit == null)
+		{
+			return new List<StoredUnitComponentType>();
+		}
+
+		if (string.IsNullOrEmpty(selectedComponentPath))
+		{
+			return GetUnitMetadataTypes(mAccess.unitCreatorManager.activeUnit);
+		}
+
+		string[] pathParts = selectedComponentPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+		string selectedPart = pathParts.LastOrDefault() ?? "";
+		if (selectedPart.StartsWith("sprite:"))
+		{
+			return GetSpriteMetadataTypes();
+		}
+
+		UnitDefinition selectedDefinition = GetDefinitionForPath(pathParts);
+		return selectedDefinition == null
+			? new List<StoredUnitComponentType>()
+			: GetUnitMetadataTypes(selectedDefinition);
+	}
+
+	List<StoredUnitComponentType> GetUnitMetadataTypes(UnitDefinition definition)
+	{
+		if (definition == null)
+		{
+			return new List<StoredUnitComponentType>();
+		}
+
+		return mAccess.unitManager.unitVariableMetadata.Values
+			.Where(type => type.Kind == "unit" && TypeMatchesUnitName(type, definition.Name))
+			.ToList();
+	}
+
+	List<StoredUnitComponentType> GetSpriteMetadataTypes()
+	{
+		const string spriteTypeName = "Godot.Sprite2D";
+		return mAccess.unitManager.unitVariableMetadata.Values
+			.Where(type =>
+				type.TypeName == spriteTypeName ||
+				type.DirectBaseTypeName == spriteTypeName ||
+				type.ObjectMembers.Any(member =>
+					member.MemberTypeName == spriteTypeName ||
+					member.ElementTypeName == spriteTypeName))
+			.ToList();
+	}
+
+	bool TypeMatchesUnitName(StoredUnitComponentType type, string unitName)
+	{
+		return string.Equals(type.DisplayName, unitName, StringComparison.OrdinalIgnoreCase) ||
+			string.Equals(type.TypeName.Split('.').LastOrDefault(), unitName, StringComparison.OrdinalIgnoreCase);
+	}
+
+	UnitDefinition GetDefinitionForPath(string[] pathParts)
+	{
+		UnitDefinition currentDefinition = mAccess.unitCreatorManager.activeUnit;
+		foreach (string pathPart in pathParts.Skip(1))
+		{
+			if (!pathPart.StartsWith("subUnit:"))
+			{
+				continue;
+			}
+
+			if (!Guid.TryParse(pathPart["subUnit:".Length..], out Guid subUnitId))
+			{
+				return currentDefinition;
+			}
+
+			UnitSubUnitAttachmentData subUnit = currentDefinition.SubUnitAttachments.FirstOrDefault(subUnit => subUnit.Id == subUnitId);
+			if (subUnit == null)
+			{
+				return currentDefinition;
+			}
+
+			currentDefinition = mAccess.unitCreatorManager.GetUnitDefinition(subUnit.ChildUnitId);
+			if (currentDefinition == null)
+			{
+				return null;
+			}
+		}
+
+		return currentDefinition;
+	}
+
+	void RefreshAnimationEditor()
+	{
+		ClearChildren(animationEditor);
+		if (selectedAnimation == null)
+		{
+			Label hint = new Label();
+			hint.Text = "Open or create an animation";
+			mAccess.styleManager.applyTextStyle(hint, "muted");
+			animationEditor.AddChild(hint);
+			return;
+		}
+
+		HBoxContainer header = new HBoxContainer();
+		header.AddThemeConstantOverride("separation", 8);
+		animationEditor.AddChild(header);
+
+		LineEdit nameEdit = new LineEdit();
+		nameEdit.Text = selectedAnimation.Name;
+		nameEdit.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		nameEdit.TextSubmitted += value =>
+		{
+			selectedAnimation.Name = value;
+			SaveSelectedAnimation();
+		};
+		nameEdit.FocusExited += () =>
+		{
+			selectedAnimation.Name = nameEdit.Text;
+			SaveSelectedAnimation();
+		};
+		header.AddChild(nameEdit);
+
+		Button addTrackButton = new Button();
+		addTrackButton.Text = "Add Variable";
+		addTrackButton.CustomMinimumSize = new Vector2(120, 30);
+		mAccess.styleManager.applyButtonStyle(addTrackButton, "secondary");
+		addTrackButton.Pressed += ShowVariablePicker;
+		header.AddChild(addTrackButton);
+
+		foreach (StoredAnimationTransformation track in selectedAnimation.Transformations.OrderBy(track => track.PropertyName))
+		{
+			animationEditor.AddChild(CreateAnimationTrackRow(track));
+		}
+
+		if (selectedAnimation.Transformations.Count == 0)
+		{
+			Label empty = new Label();
+			empty.Text = "No variable tracks";
+			mAccess.styleManager.applyTextStyle(empty, "muted");
+			animationEditor.AddChild(empty);
+		}
+	}
+
+	Control CreateAnimationTrackRow(StoredAnimationTransformation track)
+	{
+		PanelContainer panel = CreatePanel(new Vector2(0, 34));
+		HBoxContainer row = new HBoxContainer();
+		row.AddThemeConstantOverride("separation", 6);
+		panel.AddChild(row);
+
+		Label name = new Label();
+		name.Text = track.PropertyName;
+		name.CustomMinimumSize = new Vector2(180, 24);
+		name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		mAccess.styleManager.applyTextStyle(name, "default");
+		row.AddChild(name);
+
+		AddTrackNumberField(row, "Start", track.StartTime, value => track.StartTime = value);
+		AddTrackNumberField(row, "End", track.EndTime, value => track.EndTime = value);
+		AddTrackTextField(row, track.StartValue, value => track.StartValue = value);
+		AddTrackTextField(row, track.EndValue, value => track.EndValue = value);
+		AddTrackTextField(row, track.FunctionType, value => track.FunctionType = value);
+
+		Button remove = new Button();
+		remove.Text = "x";
+		remove.CustomMinimumSize = new Vector2(28, 26);
+		mAccess.styleManager.applyButtonStyle(remove, "secondary");
+		remove.Pressed += () =>
+		{
+			selectedAnimation.Transformations.Remove(track);
+			SaveSelectedAnimation();
+		};
+		row.AddChild(remove);
+
+		return panel;
+	}
+
+	void AddTrackNumberField(HBoxContainer row, string placeholder, float value, Action<float> setValue)
+	{
+		LineEdit edit = new LineEdit();
+		edit.PlaceholderText = placeholder;
+		edit.Text = value.ToString();
+		edit.CustomMinimumSize = new Vector2(52, 26);
+		edit.FocusExited += () =>
+		{
+			if (float.TryParse(edit.Text, out float parsed))
+			{
+				setValue(parsed);
+				SaveSelectedAnimation();
+			}
+		};
+		row.AddChild(edit);
+	}
+
+	void AddTrackTextField(HBoxContainer row, string value, Action<string> setValue)
+	{
+		LineEdit edit = new LineEdit();
+		edit.Text = value;
+		edit.CustomMinimumSize = new Vector2(72, 26);
+		edit.FocusExited += () =>
+		{
+			setValue(edit.Text);
+			SaveSelectedAnimation();
+		};
+		row.AddChild(edit);
+	}
+
+	void CreateNewDynamicAnimation()
+	{
+		if (mAccess.unitCreatorManager?.activeUnit == null || mAccess.entityFrameworkManager == null)
+		{
+			return;
+		}
+
+		selectedAnimation = new StoredAnimation
+		{
+			Id = Guid.NewGuid(),
+			Name = mAccess.unitCreatorManager.activeUnit.Name + " animation",
+			AnimationType = "dynamic",
+			Duration = 1,
+			Variables = new List<StoredAnimationVariable>(),
+			PropertyRequirements = new List<StoredAnimationPropertyRequirement>(),
+			Transformations = new List<StoredAnimationTransformation>()
+		};
+		SaveSelectedAnimation();
+	}
+
+	void ShowVariablePicker()
+	{
+		if (selectedAnimation == null)
+		{
+			return;
+		}
+
+		VBoxContainer content = new VBoxContainer();
+		content.CustomMinimumSize = new Vector2(420, 460);
+		content.AddThemeConstantOverride("separation", 6);
+
+		ScrollContainer scroll = new ScrollContainer();
+		scroll.SizeFlagsVertical = SizeFlags.ExpandFill;
+		content.AddChild(scroll);
+
+		VBoxContainer variables = new VBoxContainer();
+		variables.AddThemeConstantOverride("separation", 4);
+		scroll.AddChild(variables);
+
+		foreach (AnimationVariableChoice choice in GetAnimationVariableChoices())
+		{
+			Button button = new Button();
+			button.Text = choice.Label;
+			button.Alignment = HorizontalAlignment.Left;
+			button.CustomMinimumSize = new Vector2(380, 28);
+			mAccess.styleManager.applyButtonStyle(button, "secondary");
+			button.Pressed += () =>
+			{
+				AddAnimationTrack(choice);
+				mAccess.windowManager.closeWindow("Animation Variables", false);
+			};
+			variables.AddChild(button);
+		}
+
+		mAccess.windowManager.openWindow("Animation Variables", content);
+	}
+
+	List<AnimationVariableChoice> GetAnimationVariableChoices()
+	{
+		List<AnimationVariableChoice> choices = new List<AnimationVariableChoice>();
+		foreach (StoredUnitComponentType metadata in GetUsableMetadataTypes())
+		{
+			foreach (StoredUnitComponentVariable variable in metadata.Variables.Where(variable => variable.CanWrite))
+			{
+				choices.Add(new AnimationVariableChoice
+				{
+					TargetName = metadata.DisplayName,
+					TargetTypeName = metadata.TypeName,
+					PropertyName = variable.Name,
+					ValueTypeName = variable.ValueTypeName,
+					Label = metadata.DisplayName + "." + variable.Name + " : " + variable.ValueTypeName
+				});
+			}
+		}
+
+		return choices
+			.OrderBy(choice => choice.Label)
+			.ToList();
+	}
+
+	void AddAnimationTrack(AnimationVariableChoice choice)
+	{
+		if (selectedAnimation == null)
+		{
+			return;
+		}
+
+		string propertyName = choice.TargetName + "." + choice.PropertyName;
+		if (!selectedAnimation.PropertyRequirements.Any(requirement =>
+			requirement.TargetTypeName == choice.TargetTypeName &&
+			requirement.PropertyName == choice.PropertyName))
+		{
+			selectedAnimation.PropertyRequirements.Add(new StoredAnimationPropertyRequirement
+			{
+				TargetName = choice.TargetName,
+				TargetTypeName = choice.TargetTypeName,
+				PropertyName = choice.PropertyName,
+				ValueTypeName = choice.ValueTypeName,
+				InterfaceName = CreateAnimationInterfaceName(choice.TargetName)
+			});
+		}
+
+		selectedAnimation.Transformations.Add(new StoredAnimationTransformation
+		{
+			PropertyName = propertyName,
+			StartTime = 0,
+			EndTime = selectedAnimation.Duration <= 0 ? 1 : selectedAnimation.Duration,
+			StartValue = "0",
+			EndValue = "0",
+			FunctionType = "linear"
+		});
+		SaveSelectedAnimation();
+	}
+
+	string CreateAnimationInterfaceName(string targetName)
+	{
+		string cleaned = new string(targetName.Where(char.IsLetterOrDigit).ToArray());
+		return "I" + (string.IsNullOrEmpty(cleaned) ? "AnimationTarget" : cleaned) + "AnimationProperties";
+	}
+
+	void SaveSelectedAnimation()
+	{
+		if (selectedAnimation == null || mAccess.entityFrameworkManager == null)
+		{
+			return;
+		}
+
+		mAccess.entityFrameworkManager.SaveAnimation(selectedAnimation);
+		RefreshAnimationsTab();
+	}
+
 	void OnUnitChanged(object sender, EventArgs args)
 	{
 		RefreshComponentsList();
 		RefreshPreview();
+		RefreshAnimationsTab();
 	}
 
 	void RefreshPreview()
@@ -939,6 +1451,7 @@ public partial class UnitCreatorPanel : Control
 	{
 		selectedComponentPath = path;
 		RefreshComponentsList();
+		RefreshAnimationsTab();
 	}
 
 	void AddComponentRow(string name, string path, int depth, bool hasChildren, bool expanded, Action toggle)
@@ -981,5 +1494,14 @@ public partial class UnitCreatorPanel : Control
 		public UnitSubUnitAttachmentData SubUnit;
 		public Vector2 GlobalPosition;
 		public Vector2 ParentOrigin;
+	}
+
+	class AnimationVariableChoice
+	{
+		public string TargetName;
+		public string TargetTypeName;
+		public string PropertyName;
+		public string ValueTypeName;
+		public string Label;
 	}
 }

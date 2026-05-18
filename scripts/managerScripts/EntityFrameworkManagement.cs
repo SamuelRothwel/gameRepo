@@ -175,6 +175,49 @@ public class StoredUnitSubUnitTrait
 	public string ValueJson { get; set; } = "";
 }
 
+public class StoredUnitComponentType
+{
+	public Guid Id { get; set; }
+	public string TypeName { get; set; } = "";
+	public string DisplayName { get; set; } = "";
+	public string AssemblyName { get; set; } = "";
+	public string Kind { get; set; } = "";
+	public string DirectBaseTypeName { get; set; } = "";
+	public Guid? DirectBaseTypeId { get; set; }
+	public StoredUnitComponentType DirectBaseType { get; set; }
+	public string SourceVersion { get; set; } = "";
+	public List<StoredUnitComponentVariable> Variables { get; set; } = new();
+	public List<StoredUnitComponentObjectMember> ObjectMembers { get; set; } = new();
+}
+
+public class StoredUnitComponentVariable
+{
+	public Guid Id { get; set; }
+	public Guid StoredUnitComponentTypeId { get; set; }
+	public StoredUnitComponentType StoredUnitComponentType { get; set; }
+	public string Name { get; set; } = "";
+	public string ValueTypeName { get; set; } = "";
+	public string VariableKind { get; set; } = "";
+	public bool IsPublic { get; set; }
+	public bool CanRead { get; set; }
+	public bool CanWrite { get; set; }
+	public bool IsObjectReference { get; set; }
+}
+
+public class StoredUnitComponentObjectMember
+{
+	public Guid Id { get; set; }
+	public Guid OwnerTypeId { get; set; }
+	public StoredUnitComponentType OwnerType { get; set; }
+	public string Name { get; set; } = "";
+	public string MemberTypeName { get; set; } = "";
+	public Guid? MemberTypeId { get; set; }
+	public StoredUnitComponentType MemberType { get; set; }
+	public string VariableKind { get; set; } = "";
+	public bool IsCollection { get; set; }
+	public string ElementTypeName { get; set; } = "";
+}
+
 public class StoredGameSetting
 {
 	public string Key { get; set; } = "";
@@ -198,6 +241,9 @@ public class GameDbContext : DbContext
 	public DbSet<StoredUnitSpriteTrait> UnitSpriteTraits { get; set; }
 	public DbSet<StoredUnitSubUnitAttachment> UnitSubUnitAttachments { get; set; }
 	public DbSet<StoredUnitSubUnitTrait> UnitSubUnitTraits { get; set; }
+	public DbSet<StoredUnitComponentType> UnitComponentTypes { get; set; }
+	public DbSet<StoredUnitComponentVariable> UnitComponentVariables { get; set; }
+	public DbSet<StoredUnitComponentObjectMember> UnitComponentObjectMembers { get; set; }
 	public DbSet<StoredGameSetting> GameSettings { get; set; }
 
 	protected override void OnConfiguring(DbContextOptionsBuilder options)
@@ -273,6 +319,15 @@ public class GameDbContext : DbContext
 		modelBuilder.Entity<StoredUnitSubUnitTrait>()
 			.HasKey(trait => trait.Id);
 
+		modelBuilder.Entity<StoredUnitComponentType>()
+			.HasKey(type => type.Id);
+
+		modelBuilder.Entity<StoredUnitComponentVariable>()
+			.HasKey(variable => variable.Id);
+
+		modelBuilder.Entity<StoredUnitComponentObjectMember>()
+			.HasKey(member => member.Id);
+
 		modelBuilder.Entity<StoredGameSetting>()
 			.HasKey(setting => setting.Key);
 
@@ -329,6 +384,34 @@ public class GameDbContext : DbContext
 			.WithOne(trait => trait.StoredUnitSubUnitAttachment)
 			.HasForeignKey(trait => trait.StoredUnitSubUnitAttachmentId)
 			.OnDelete(DeleteBehavior.Cascade);
+
+		modelBuilder.Entity<StoredUnitComponentType>()
+			.HasIndex(type => type.TypeName)
+			.IsUnique();
+
+		modelBuilder.Entity<StoredUnitComponentType>()
+			.HasOne(type => type.DirectBaseType)
+			.WithMany()
+			.HasForeignKey(type => type.DirectBaseTypeId)
+			.OnDelete(DeleteBehavior.SetNull);
+
+		modelBuilder.Entity<StoredUnitComponentType>()
+			.HasMany(type => type.Variables)
+			.WithOne(variable => variable.StoredUnitComponentType)
+			.HasForeignKey(variable => variable.StoredUnitComponentTypeId)
+			.OnDelete(DeleteBehavior.Cascade);
+
+		modelBuilder.Entity<StoredUnitComponentType>()
+			.HasMany(type => type.ObjectMembers)
+			.WithOne(member => member.OwnerType)
+			.HasForeignKey(member => member.OwnerTypeId)
+			.OnDelete(DeleteBehavior.Cascade);
+
+		modelBuilder.Entity<StoredUnitComponentObjectMember>()
+			.HasOne(member => member.MemberType)
+			.WithMany()
+			.HasForeignKey(member => member.MemberTypeId)
+			.OnDelete(DeleteBehavior.SetNull);
 	}
 }
 
@@ -655,6 +738,50 @@ public partial class EntityFrameworkManagement : managerNode
 				CONSTRAINT FK_UnitSubUnitTraits_UnitSubUnitAttachments_StoredUnitSubUnitAttachmentId FOREIGN KEY (StoredUnitSubUnitAttachmentId) REFERENCES UnitSubUnitAttachments (Id) ON DELETE CASCADE
 			)
 			""");
+		context.Database.ExecuteSqlRaw("""
+			CREATE TABLE IF NOT EXISTS UnitComponentTypes (
+				Id TEXT NOT NULL CONSTRAINT PK_UnitComponentTypes PRIMARY KEY,
+				TypeName TEXT NOT NULL,
+				DisplayName TEXT NOT NULL,
+				AssemblyName TEXT NOT NULL,
+				Kind TEXT NOT NULL,
+				DirectBaseTypeName TEXT NOT NULL,
+				DirectBaseTypeId TEXT NULL,
+				SourceVersion TEXT NOT NULL,
+				CONSTRAINT FK_UnitComponentTypes_UnitComponentTypes_DirectBaseTypeId FOREIGN KEY (DirectBaseTypeId) REFERENCES UnitComponentTypes (Id) ON DELETE SET NULL
+			)
+			""");
+		context.Database.ExecuteSqlRaw("""
+			CREATE UNIQUE INDEX IF NOT EXISTS IX_UnitComponentTypes_TypeName ON UnitComponentTypes (TypeName)
+			""");
+		context.Database.ExecuteSqlRaw("""
+			CREATE TABLE IF NOT EXISTS UnitComponentVariables (
+				Id TEXT NOT NULL CONSTRAINT PK_UnitComponentVariables PRIMARY KEY,
+				StoredUnitComponentTypeId TEXT NOT NULL,
+				Name TEXT NOT NULL,
+				ValueTypeName TEXT NOT NULL,
+				VariableKind TEXT NOT NULL,
+				IsPublic INTEGER NOT NULL,
+				CanRead INTEGER NOT NULL,
+				CanWrite INTEGER NOT NULL,
+				IsObjectReference INTEGER NOT NULL,
+				CONSTRAINT FK_UnitComponentVariables_UnitComponentTypes_StoredUnitComponentTypeId FOREIGN KEY (StoredUnitComponentTypeId) REFERENCES UnitComponentTypes (Id) ON DELETE CASCADE
+			)
+			""");
+		context.Database.ExecuteSqlRaw("""
+			CREATE TABLE IF NOT EXISTS UnitComponentObjectMembers (
+				Id TEXT NOT NULL CONSTRAINT PK_UnitComponentObjectMembers PRIMARY KEY,
+				OwnerTypeId TEXT NOT NULL,
+				Name TEXT NOT NULL,
+				MemberTypeName TEXT NOT NULL,
+				MemberTypeId TEXT NULL,
+				VariableKind TEXT NOT NULL,
+				IsCollection INTEGER NOT NULL,
+				ElementTypeName TEXT NOT NULL,
+				CONSTRAINT FK_UnitComponentObjectMembers_UnitComponentTypes_OwnerTypeId FOREIGN KEY (OwnerTypeId) REFERENCES UnitComponentTypes (Id) ON DELETE CASCADE,
+				CONSTRAINT FK_UnitComponentObjectMembers_UnitComponentTypes_MemberTypeId FOREIGN KEY (MemberTypeId) REFERENCES UnitComponentTypes (Id) ON DELETE SET NULL
+			)
+			""");
 	}
 
 	void EnsureGameSettingsTable(GameDbContext context)
@@ -878,6 +1005,125 @@ public partial class EntityFrameworkManagement : managerNode
 					.ToList()
 			})
 			.OrderBy(animation => animation.Name)
+			.ToList();
+	}
+
+	public List<StoredUnitComponentType> EnsureUnitVariableMetadata(IEnumerable<Type> rootTypes)
+	{
+		List<UnitVariableTypeDefinition> definitions = UnitVariableMetadataScanner.Scan(rootTypes);
+		using GameDbContext context = new GameDbContext();
+		using var transaction = context.Database.BeginTransaction();
+
+		Dictionary<string, StoredUnitComponentType> storedTypes = context.UnitComponentTypes
+			.ToDictionary(type => type.TypeName);
+
+		foreach (UnitVariableTypeDefinition definition in definitions)
+		{
+			if (!storedTypes.TryGetValue(definition.TypeName, out StoredUnitComponentType storedType))
+			{
+				storedType = new StoredUnitComponentType
+				{
+					Id = Guid.NewGuid(),
+					TypeName = definition.TypeName
+				};
+				context.UnitComponentTypes.Add(storedType);
+				storedTypes[definition.TypeName] = storedType;
+			}
+
+			storedType.DisplayName = definition.DisplayName;
+			storedType.AssemblyName = definition.AssemblyName;
+			storedType.Kind = definition.Kind;
+			storedType.DirectBaseTypeName = definition.DirectBaseTypeName;
+			storedType.SourceVersion = definition.SourceVersion;
+		}
+		context.SaveChanges();
+
+		storedTypes = context.UnitComponentTypes.ToDictionary(type => type.TypeName);
+		foreach (UnitVariableTypeDefinition definition in definitions)
+		{
+			StoredUnitComponentType storedType = storedTypes[definition.TypeName];
+			storedType.DirectBaseTypeId = !string.IsNullOrEmpty(definition.DirectBaseTypeName) &&
+				storedTypes.TryGetValue(definition.DirectBaseTypeName, out StoredUnitComponentType baseType)
+				? baseType.Id
+				: null;
+		}
+		context.SaveChanges();
+
+		List<Guid> refreshedTypeIds = definitions.Select(definition => storedTypes[definition.TypeName].Id).ToList();
+		context.UnitComponentObjectMembers
+			.Where(member => refreshedTypeIds.Contains(member.OwnerTypeId))
+			.ExecuteDelete();
+		context.UnitComponentVariables
+			.Where(variable => refreshedTypeIds.Contains(variable.StoredUnitComponentTypeId))
+			.ExecuteDelete();
+
+		foreach (UnitVariableTypeDefinition definition in definitions)
+		{
+			StoredUnitComponentType storedType = storedTypes[definition.TypeName];
+			foreach (UnitVariableDefinition variable in definition.Variables)
+			{
+				context.UnitComponentVariables.Add(new StoredUnitComponentVariable
+				{
+					Id = Guid.NewGuid(),
+					StoredUnitComponentTypeId = storedType.Id,
+					Name = variable.Name,
+					ValueTypeName = variable.ValueTypeName,
+					VariableKind = variable.VariableKind,
+					IsPublic = variable.IsPublic,
+					CanRead = variable.CanRead,
+					CanWrite = variable.CanWrite,
+					IsObjectReference = variable.IsObjectReference
+				});
+			}
+
+			foreach (UnitVariableObjectMemberDefinition objectMember in definition.ObjectMembers)
+			{
+				string referencedTypeName = string.IsNullOrEmpty(objectMember.ElementTypeName)
+					? objectMember.MemberTypeName
+					: objectMember.ElementTypeName;
+				context.UnitComponentObjectMembers.Add(new StoredUnitComponentObjectMember
+				{
+					Id = Guid.NewGuid(),
+					OwnerTypeId = storedType.Id,
+					Name = objectMember.Name,
+					MemberTypeName = objectMember.MemberTypeName,
+					MemberTypeId = storedTypes.TryGetValue(referencedTypeName, out StoredUnitComponentType memberType) ? memberType.Id : null,
+					VariableKind = objectMember.VariableKind,
+					IsCollection = objectMember.IsCollection,
+					ElementTypeName = objectMember.ElementTypeName
+				});
+			}
+		}
+
+		context.SaveChanges();
+		transaction.Commit();
+		return GetUnitVariableMetadata();
+	}
+
+	public List<StoredUnitComponentType> GetUnitVariableMetadata()
+	{
+		using GameDbContext context = new GameDbContext();
+		return context.UnitComponentTypes
+			.Include(type => type.DirectBaseType)
+			.Include(type => type.Variables)
+			.Include(type => type.ObjectMembers)
+				.ThenInclude(member => member.MemberType)
+			.AsSplitQuery()
+			.Select(type => new StoredUnitComponentType
+			{
+				Id = type.Id,
+				TypeName = type.TypeName,
+				DisplayName = type.DisplayName,
+				AssemblyName = type.AssemblyName,
+				Kind = type.Kind,
+				DirectBaseTypeName = type.DirectBaseTypeName,
+				DirectBaseTypeId = type.DirectBaseTypeId,
+				DirectBaseType = type.DirectBaseType,
+				SourceVersion = type.SourceVersion,
+				Variables = type.Variables.OrderBy(variable => variable.Name).ToList(),
+				ObjectMembers = type.ObjectMembers.OrderBy(member => member.Name).ToList()
+			})
+			.OrderBy(type => type.TypeName)
 			.ToList();
 	}
 

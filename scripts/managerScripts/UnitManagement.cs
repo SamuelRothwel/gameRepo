@@ -10,6 +10,7 @@ namespace coolbeats.scripts.managerScripts
     {
         public Dictionary<Guid, unitControler> units = new Dictionary<Guid, unitControler>();
         public Dictionary<string, UnitDefinition> unitDefinitions = new Dictionary<string, UnitDefinition>();
+        public Dictionary<string, StoredUnitComponentType> unitVariableMetadata = new Dictionary<string, StoredUnitComponentType>();
         public List<(string, (string, (Godot.Key, string[], string)[]))> _commandSets;
         public Dictionary<string, (int, Dictionary<Godot.Key, (string[], string)>)> commandSets;
         public List<Guid> selectedUnit = new List<Guid>();
@@ -41,6 +42,7 @@ namespace coolbeats.scripts.managerScripts
                 commandSets[set.Item1] = (i, newSet);
             }
             setupUnitDefinitions();
+            setupUnitVariableMetadata();
         }
         public void setupUnitDefinitions()
         {
@@ -140,6 +142,26 @@ namespace coolbeats.scripts.managerScripts
         public void RegisterUnitDefinition(UnitDefinition definition)
         {
             unitDefinitions[definition.Name] = definition;
+        }
+        public void setupUnitVariableMetadata()
+        {
+            List<Type> unitComponentTypes = UnitVariableMetadataScanner.GetUnitAndComponentTypes(typeof(unitControler).Assembly);
+            unitVariableMetadata = mAccess.entityFrameworkManager?
+                .EnsureUnitVariableMetadata(unitComponentTypes)
+                .ToDictionary(type => type.TypeName) ?? new Dictionary<string, StoredUnitComponentType>();
+        }
+        public IReadOnlyList<StoredUnitComponentVariable> GetStoredVariables(Type type)
+        {
+            if (type == null)
+            {
+                return Array.Empty<StoredUnitComponentVariable>();
+            }
+            if (!unitVariableMetadata.TryGetValue(type.FullName ?? type.Name, out StoredUnitComponentType storedType))
+            {
+                return Array.Empty<StoredUnitComponentVariable>();
+            }
+
+            return storedType.Variables;
         }
         public Guid createUnit(string name, int team)
         {
