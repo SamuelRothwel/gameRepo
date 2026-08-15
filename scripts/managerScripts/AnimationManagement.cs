@@ -3,6 +3,7 @@ using coolbeats.scripts.staticScriptsAndDataStructures;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
@@ -27,67 +28,7 @@ public partial class AnimationManagement : managerNode
 			node.setup(audioFiles);
 			CreateAnimationLibrary(node.Name, node.library.ToArray());
 		}
-		RegisterDynamicAnimation(new DynamicAnimationDefinition
-		{
-			Name = "CircularSpriteRotate",
-			Duration = 1f,
-			Variables = new List<DynamicAnimationVariable>
-			{
-				new DynamicAnimationVariable
-				{
-					Name = "n",
-					Source = "iterator.count"
-				}
-			},
-			PropertyRequirements = CreateCircularSpritePropertyRequirements(),
-			Transformations = new List<DynamicAnimationTransformation>
-			{
-				new DynamicAnimationTransformation
-				{
-					PropertyName = "item.Position.X",
-					LoopVariable = "i",
-					LoopCountVariable = "n",
-					StartTime = 0f,
-					EndTime = 1f,
-					StartValue = "sin(i/n*360)*5",
-					EndValue = "sin((i+1)/n*360)*5",
-					FunctionType = "sin((i+t)/n*360)*5"
-				},
-				new DynamicAnimationTransformation
-				{
-					PropertyName = "item.ZIndex",
-					LoopVariable = "i",
-					LoopCountVariable = "n",
-					StartTime = 0f,
-					EndTime = 1f,
-					StartValue = "cos(i/n*360)*1000+1000",
-					EndValue = "cos((i+1)/n*360)*1000+1000",
-					FunctionType = "cos((i+t)/n*360)*1000+1000"
-				},
-				new DynamicAnimationTransformation
-				{
-					PropertyName = "item.Scale.X",
-					LoopVariable = "i",
-					LoopCountVariable = "n",
-					StartTime = 0f,
-					EndTime = 1f,
-					StartValue = "cos(i/n*360)*0.1+0.9",
-					EndValue = "cos((i+1)/n*360)*0.1+0.9",
-					FunctionType = "cos((i+t)/n*360)*0.1+0.9"
-				},
-				new DynamicAnimationTransformation
-				{
-					PropertyName = "item.Scale.Y",
-					LoopVariable = "i",
-					LoopCountVariable = "n",
-					StartTime = 0f,
-					EndTime = 1f,
-					StartValue = "cos(i/n*360)*0.1+0.9",
-					EndValue = "cos((i+1)/n*360)*0.1+0.9",
-					FunctionType = "cos((i+t)/n*360)*0.1+0.9"
-				}
-			}
-		});
+		RegisterDynamicAnimationProviders();
 	}
 
 	public override void _Process(double delta)
@@ -106,6 +47,68 @@ public partial class AnimationManagement : managerNode
 	public void RegisterDynamicAnimation(DynamicAnimationDefinition definition)
 	{
 		dynamicAnimationDefinitions[definition.Name] = definition;
+	}
+
+	void RegisterDynamicAnimationProviders()
+	{
+		foreach (IDynamicAnimationDefinitionProvider provider in CreateDynamicAnimationDefinitionProviders())
+		{
+			foreach (DynamicAnimationDefinition definition in provider.CreateDynamicAnimationDefinitions())
+			{
+				RegisterDynamicAnimation(definition);
+			}
+		}
+	}
+
+	IEnumerable<IDynamicAnimationDefinitionProvider> CreateDynamicAnimationDefinitionProviders()
+	{
+		foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+		{
+			IEnumerable<Type> types;
+			try
+			{
+				types = assembly.GetTypes();
+			}
+			catch (ReflectionTypeLoadException exception)
+			{
+				types = exception.Types.Where(type => type != null);
+			}
+
+			foreach (Type type in types)
+			{
+				if (!type.IsClass || type.IsAbstract || !typeof(IDynamicAnimationDefinitionProvider).IsAssignableFrom(type))
+				{
+					continue;
+				}
+				if (Activator.CreateInstance(type) is IDynamicAnimationDefinitionProvider provider)
+				{
+					yield return provider;
+				}
+			}
+		}
+	}
+
+	public DynamicAnimator PlayEnumerableAnimation<T>(
+		string animationName,
+		IEnumerable<T> items,
+		Action onComplete = null,
+		Action<string> eventHandler = null,
+		float speed = 1f)
+	{
+		if (!dynamicAnimationDefinitions.TryGetValue(animationName, out DynamicAnimationDefinition definition))
+		{
+			return null;
+		}
+
+		DynamicAnimator animator = new DynamicAnimator(
+			definition,
+			new EnumerableAnimationTarget<T>(items, onComplete),
+			eventHandler)
+		{
+			Speed = speed
+		};
+		activeDynamicAnimators.Add(animator);
+		return animator;
 	}
 
 	public DynamicAnimationDefinition SaveDynamicAnimationDefinition(DynamicAnimationDefinition definition)
@@ -144,71 +147,6 @@ public partial class AnimationManagement : managerNode
 		return definition;
 	}
 
-	public DynamicAnimationDefinition SaveCircularSpriteRotateAnimation(string name, float duration, float rotationDegrees)
-	{
-		return SaveDynamicAnimationDefinition(new DynamicAnimationDefinition
-		{
-			Name = name,
-			Duration = duration,
-			Variables = new List<DynamicAnimationVariable>
-			{
-				new DynamicAnimationVariable
-				{
-					Name = "n",
-					Source = "iterator.count"
-				}
-			},
-			PropertyRequirements = CreateCircularSpritePropertyRequirements(),
-			Transformations = new List<DynamicAnimationTransformation>
-			{
-				new DynamicAnimationTransformation
-				{
-					PropertyName = "item.Position.X",
-					LoopVariable = "i",
-					LoopCountVariable = "n",
-					StartTime = 0f,
-					EndTime = duration,
-					StartValue = "sin(i/n*360)*5",
-					EndValue = "sin((i+1)/n*360)*5",
-					FunctionType = "sin((i+t)/n*360)*5"
-				},
-				new DynamicAnimationTransformation
-				{
-					PropertyName = "item.ZIndex",
-					LoopVariable = "i",
-					LoopCountVariable = "n",
-					StartTime = 0f,
-					EndTime = duration,
-					StartValue = "cos(i/n*360)*1000+1000",
-					EndValue = "cos((i+1)/n*360)*1000+1000",
-					FunctionType = "cos((i+t)/n*360)*1000+1000"
-				},
-				new DynamicAnimationTransformation
-				{
-					PropertyName = "item.Scale.X",
-					LoopVariable = "i",
-					LoopCountVariable = "n",
-					StartTime = 0f,
-					EndTime = duration,
-					StartValue = "cos(i/n*360)*0.1+0.9",
-					EndValue = "cos((i+1)/n*360)*0.1+0.9",
-					FunctionType = "cos((i+t)/n*360)*0.1+0.9"
-				},
-				new DynamicAnimationTransformation
-				{
-					PropertyName = "item.Scale.Y",
-					LoopVariable = "i",
-					LoopCountVariable = "n",
-					StartTime = 0f,
-					EndTime = duration,
-					StartValue = "cos(i/n*360)*0.1+0.9",
-					EndValue = "cos((i+1)/n*360)*0.1+0.9",
-					FunctionType = "cos((i+t)/n*360)*0.1+0.9"
-				}
-			}
-		});
-	}
-
 	public void RegisterStoredDynamicAnimations(IEnumerable<StoredAnimation> animations)
 	{
 		foreach (StoredAnimation animation in animations)
@@ -245,45 +183,6 @@ public partial class AnimationManagement : managerNode
 		}
 	}
 
-	List<DynamicAnimationPropertyRequirement> CreateCircularSpritePropertyRequirements()
-	{
-		return new List<DynamicAnimationPropertyRequirement>
-		{
-			CreateCircularSpritePropertyRequirement("Position.X", "float"),
-			CreateCircularSpritePropertyRequirement("ZIndex", "int"),
-			CreateCircularSpritePropertyRequirement("Scale.X", "float"),
-			CreateCircularSpritePropertyRequirement("Scale.Y", "float")
-		};
-	}
-
-	DynamicAnimationPropertyRequirement CreateCircularSpritePropertyRequirement(string propertyName, string valueTypeName)
-	{
-		return new DynamicAnimationPropertyRequirement
-		{
-			TargetName = "item",
-			TargetTypeName = typeof(Sprite2D).FullName,
-			PropertyName = propertyName,
-			ValueTypeName = valueTypeName,
-			InterfaceName = "ICircularSpriteRotateItemAnimationProperties"
-		};
-	}
-
-	public DynamicAnimator RotateCircularSprites(
-		CircularEnumerator<Sprite2D> sprites,
-		Action<string> eventHandler = null,
-		float speed = 1f)
-	{
-		DynamicAnimationDefinition definition = dynamicAnimationDefinitions["CircularSpriteRotate"];
-		DynamicAnimator animator = new DynamicAnimator(
-			definition,
-			new CircularSpriteAnimationTarget(sprites),
-			eventHandler)
-		{
-			Speed = speed
-		};
-		activeDynamicAnimators.Add(animator);
-		return animator;
-	}
 	public Godot.Collections.Dictionary methodCaller(string name, Variant[] args = null)
 	{
 		return new Godot.Collections.Dictionary
@@ -395,6 +294,11 @@ public interface IDynamicAnimationTarget
 	void CompleteAnimation();
 }
 
+public interface IDynamicAnimationDefinitionProvider
+{
+	IEnumerable<DynamicAnimationDefinition> CreateDynamicAnimationDefinitions();
+}
+
 public class DynamicAnimator
 {
 	Action<string> eventHandler;
@@ -405,6 +309,7 @@ public class DynamicAnimator
 	public string Name { get; }
 	public float Speed { get; set; } = 1f;
 	public bool IsComplete { get; private set; }
+	public float Elapsed => (float)elapsed;
 
 	public DynamicAnimator(DynamicAnimationDefinition definition, IDynamicAnimationTarget target, Action<string> eventHandler)
 	{
@@ -426,20 +331,33 @@ public class DynamicAnimator
 		}
 
 		double scaledDelta = delta * Speed;
-		double previousElapsed = elapsed;
-		elapsed = Math.Min(elapsed + scaledDelta, Math.Max(definition.Duration, 0.001f));
+		double duration = Math.Max(definition.Duration, 0.001f);
+		elapsed = Math.Clamp(elapsed + scaledDelta, 0, duration);
 		variables["time"] = (float)elapsed;
-		variables["t"] = (float)(elapsed / Math.Max(definition.Duration, 0.001f));
+		variables["t"] = (float)(elapsed / duration);
 		foreach (DynamicAnimationTransformation transformation in definition.Transformations)
 		{
 			ApplyTransformation(transformation, elapsed);
 		}
 
-		if (elapsed >= definition.Duration)
+		if ((Speed >= 0 && elapsed >= duration) || (Speed < 0 && elapsed <= 0))
 		{
 			IsComplete = true;
 			target.CompleteAnimation();
 			eventHandler?.Invoke("finished");
+		}
+	}
+
+	public void Seek(float time)
+	{
+		double duration = Math.Max(definition.Duration, 0.001f);
+		elapsed = Math.Clamp(time, 0, duration);
+		IsComplete = false;
+		variables["time"] = (float)elapsed;
+		variables["t"] = (float)(elapsed / duration);
+		foreach (DynamicAnimationTransformation transformation in definition.Transformations)
+		{
+			ApplyTransformation(transformation, elapsed);
 		}
 	}
 
@@ -505,20 +423,22 @@ public class DynamicAnimator
 	}
 }
 
-public class CircularSpriteAnimationTarget : IDynamicAnimationTarget
+public class EnumerableAnimationTarget<T> : IDynamicAnimationTarget
 {
-	CircularEnumerator<Sprite2D> sprites;
+	readonly IReadOnlyList<T> items;
+	readonly Action onComplete;
 
-	public CircularSpriteAnimationTarget(CircularEnumerator<Sprite2D> sprites)
+	public EnumerableAnimationTarget(IEnumerable<T> items, Action onComplete = null)
 	{
-		this.sprites = sprites;
+		this.items = items?.ToList() ?? new List<T>();
+		this.onComplete = onComplete;
 	}
 
 	public float GetVariable(string source)
 	{
-		if (source == "iterator.count")
+		if (source == "iterator.count" || source == "enumerable.count")
 		{
-			return sprites.Count;
+			return items.Count;
 		}
 
 		return 0;
@@ -526,17 +446,17 @@ public class CircularSpriteAnimationTarget : IDynamicAnimationTarget
 
 	public object ResolveAnimationTarget(string name, int index)
 	{
-		if (name != "item" || index < 0 || index >= sprites.Count)
+		if (name != "item" || index < 0 || index >= items.Count)
 		{
 			return null;
 		}
 
-		return sprites.GetLoopItem(index);
+		return items[index];
 	}
 
 	public void CompleteAnimation()
 	{
-		sprites.MoveNext();
+		onComplete?.Invoke();
 	}
 }
 

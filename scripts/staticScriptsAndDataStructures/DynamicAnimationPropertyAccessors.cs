@@ -53,6 +53,11 @@ public interface ICircularSpriteRotateItemAnimationProperties
 	void SetScaleY(Sprite2D target, float value);
 }
 
+public interface IHorizontalMoveItemAnimationProperties
+{
+	void SetPositionX(Node2D target, float value);
+}
+
 public static class DynamicAnimationGeneratedAccessors
 {
 	static bool registered;
@@ -65,7 +70,34 @@ public static class DynamicAnimationGeneratedAccessors
 		}
 
 		DynamicAnimationPropertyAccessorRegistry.Register(new CircularSpriteRotateItemAnimationAccessor());
+		DynamicAnimationPropertyAccessorRegistry.Register(new HorizontalMoveItemAnimationAccessor());
 		registered = true;
+	}
+}
+
+public class HorizontalMoveItemAnimationAccessor : IDynamicAnimationPropertyAccessor, IHorizontalMoveItemAnimationProperties
+{
+	public string TargetName => "item";
+	public Type TargetType => typeof(Node2D);
+
+	public bool Supports(string targetName, string propertyName, Type targetType)
+	{
+		return targetName == TargetName &&
+			TargetType.IsAssignableFrom(targetType) &&
+			propertyName == "Position.X";
+	}
+
+	public void SetValue(object target, string propertyName, float value)
+	{
+		if (propertyName == "Position.X" && target is Node2D node)
+		{
+			SetPositionX(node, value);
+		}
+	}
+
+	public void SetPositionX(Node2D target, float value)
+	{
+		target.Position = target.Position with { X = value };
 	}
 }
 

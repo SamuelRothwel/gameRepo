@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace coolbeats.scripts.staticScriptsAndDataStructures
 {
-    public class CircularEnumerator<T>
+    public class CircularEnumerator<T> : IEnumerable<T>
     {
         public T[] array;
         public int index;
@@ -20,20 +20,34 @@ namespace coolbeats.scripts.staticScriptsAndDataStructures
         }
         public void MoveNext()
         {
+            if (Count == 0)
+            {
+                return;
+            }
             index = (index + 1) % Count;
         }
         public T GetLoopItem(int offset)
         {
+            if (Count == 0)
+            {
+                return default;
+            }
             return array[(index + offset) % Count];
         }
         public IEnumerable<T> loop()
         {
-            int start = index;
-            do 
+            return this;
+        }
+        public IEnumerator<T> GetEnumerator()
+        {
+            for (int i = 0; i < Count; i++)
             {
-                yield return Current;
-                MoveNext();
-            } while (start != index);
+                yield return GetLoopItem(i);
+            }
+        }
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
     }
 }

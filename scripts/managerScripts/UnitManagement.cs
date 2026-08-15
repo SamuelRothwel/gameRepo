@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
-using coolbeats.scripts.logicScripts.AttachedLogic.Components;
 using Godot;
 
 namespace coolbeats.scripts.managerScripts
@@ -13,6 +13,7 @@ namespace coolbeats.scripts.managerScripts
         public Dictionary<Guid, unitControler> units = new Dictionary<Guid, unitControler>();
         public Dictionary<string, UnitDefinition> unitDefinitions = new Dictionary<string, UnitDefinition>();
         public Dictionary<string, StoredUnitComponentType> unitVariableMetadata = new Dictionary<string, StoredUnitComponentType>();
+        public List<IUnitDefinitionProvider> unitDefinitionProviders = new List<IUnitDefinitionProvider>();
         public List<(string, (string, (Godot.Key, string[], string)[]))> _commandSets;
         public Dictionary<string, (int, Dictionary<Godot.Key, (string[], string)>)> commandSets;
         public List<Guid> selectedUnit = new List<Guid>();
@@ -48,102 +49,88 @@ namespace coolbeats.scripts.managerScripts
         }
         public void setupUnitDefinitions()
         {
-            UnitDefinition marine = createDefaultMarineDefinition();
-            RegisterUnitDefinition(marine);
-            mAccess.entityFrameworkManager?.EnsureUnitDefinition(marine);
+            unitDefinitionProviders = DiscoverUnitDefinitionProviders();
+            foreach (IUnitDefinitionProvider provider in unitDefinitionProviders)
+            {
+                foreach (UnitDefinition definition in provider.CreateDefinitions(CreateKnownBehaviors))
+                {
+                    UnitDefinition normalizedDefinition = NormalizeUnitDefinition(definition);
+                    RegisterUnitDefinition(normalizedDefinition);
+                    mAccess.entityFrameworkManager?.EnsureUnitDefinition(normalizedDefinition);
+                    EnsureComponentDefinitions(normalizedDefinition.ComponentAttachments);
+                }
+            }
 
             foreach (UnitDefinition storedDefinition in mAccess.entityFrameworkManager?.GetUnitDefinitions(CreateKnownBehaviors) ?? new List<UnitDefinition>())
             {
-                RegisterUnitDefinition(storedDefinition);
+                if (storedDefinition.DefinitionKind != "component")
+                {
+                    RegisterUnitDefinition(NormalizeUnitDefinition(storedDefinition));
+                }
             }
         }
-        UnitDefinition createDefaultMarineDefinition()
+        void EnsureComponentDefinitions(IEnumerable<UnitComponentAttachmentData> components)
         {
-            UnitBehaviorProfile marineBehaviors = new UnitBehaviorProfile();
-            marineBehaviors.SetCommand("move", "chaseTarget");
-            marineBehaviors.SetCommand("attack", "attackTarget", "chaseTarget");
-            marineBehaviors.SetCommand("idle", "scanAttack", "scanChase");
-            marineBehaviors.SetCommand("holdPosition", "scanAttack", "attackTarget");
-            marineBehaviors.SetCommand("attackMove", "scanAttack", "scanChase", "chaseTarget");
-
-            UnitDefinition marine = new UnitDefinition
+            foreach (UnitComponentAttachmentData component in components)
             {
-                Name = "marine",
-                CommandType = "attacker",
-                Radius = 30,
-                DetectionRadius = 150,
-                MaxHP = 50,
-                BehaviorProfile = marineBehaviors,
-                BehaviorFactory = CreateKnownBehaviors
-            };
-            marine.NumericalTraits["speed"] = 1;
-            marine.NumericalTraits["attackRange"] = 0;
-            marine.DescriptiveTraits["role"] = "attacker";
-            marine.SpriteAttachments.Add(new UnitSpriteAttachmentData
-            {
-                Name = "body",
-                SpriteSetKey = "Marine",
-                Order = 0,
-                Traits = new List<UnitDataTrait>
+                UnitDefinition definition = new UnitDefinition
                 {
-                    new UnitDataTrait { Key = "damageable", ValueType = "bool", ValueJson = "true" },
-                    new UnitDataTrait { Key = "hitboxEnabled", ValueType = "bool", ValueJson = "true" }
-                }
-            });
-            marine.ComponentAttachments.Add(CreateMarineGunComponent());
-            return marine;
-        }
-        UnitComponentAttachmentData CreateMarineGunComponent()
-        {
-            UnitComponentAttachmentData gun = new UnitComponentAttachmentData
-            {
-                Name = "gun",
-                TypeName = typeof(componentGun).FullName ?? nameof(componentGun),
-                Position = new Vector2(13, -10),
-                Order = 0,
-                Traits = new List<UnitDataTrait>
+                    Name = component.Name,
+                    DefinitionKind = "component",
+                    CommandType = "",
+                    MaxHP = 1,
+                    SpriteAttachments = component.SpriteAttachments,
+                    ComponentAttachments = component.ChildComponents
+                };
+                definition.DescriptiveTraits["componentType"] = component.TypeName;
+                foreach (UnitDataTrait trait in component.Traits)
                 {
-                    new UnitDataTrait { Key = "role", ValueType = "text", ValueJson = JsonSerializer.Serialize("weapon") },
-                    new UnitDataTrait { Key = "automaticBehaviour", ValueType = "text", ValueJson = JsonSerializer.Serialize("none") },
-                    new UnitDataTrait { Key = "positionX", ValueType = "number", ValueJson = JsonSerializer.Serialize(13f) },
-                    new UnitDataTrait { Key = "positionY", ValueType = "number", ValueJson = JsonSerializer.Serialize(-10f) }
-                }
-            };
-
-            gun.ChildComponents.Add(new UnitComponentAttachmentData
-            {
-                Name = "circular sprites",
-                TypeName = typeof(GunComponentRing).FullName ?? nameof(GunComponentRing),
-                Order = 0,
-                Traits = new List<UnitDataTrait>
-                {
-                    new UnitDataTrait { Key = "spriteIterator", ValueType = "text", ValueJson = JsonSerializer.Serialize("circular") },
-                    new UnitDataTrait { Key = "spriteCount", ValueType = "number", ValueJson = JsonSerializer.Serialize(3f) }
-                },
-                SpriteAttachments = new List<UnitSpriteAttachmentData>
-                {
-                    new UnitSpriteAttachmentData
+                    try
                     {
-                        Name = "barrel",
-                        SpriteSetKey = "GunBarrel",
-                        Order = 0
-                    },
-                    new UnitSpriteAttachmentData
+                        if (trait.ValueType == "number")
+                        {
+                            definition.NumericalTraits[trait.Key] = JsonSerializer.Deserialize<float>(trait.ValueJson);
+                        }
+                        else if (trait.ValueType == "text")
+                        {
+                            definition.DescriptiveTraits[trait.Key] = JsonSerializer.Deserialize<string>(trait.ValueJson) ?? "";
+                        }
+                    }
+                    catch
                     {
-                        Name = "barrel",
-                        SpriteSetKey = "GunBarrel",
-                        Order = 1
-                    },
-                    new UnitSpriteAttachmentData
-                    {
-                        Name = "barrel",
-                        SpriteSetKey = "GunBarrel",
-                        Order = 2
                     }
                 }
-            });
+                mAccess.entityFrameworkManager?.EnsureUnitDefinition(definition);
+                EnsureComponentDefinitions(component.ChildComponents);
+            }
+        }
+        List<IUnitDefinitionProvider> DiscoverUnitDefinitionProviders()
+        {
+            GD.Print("callin");
+            return typeof(unitControler).Assembly.GetTypes()
+                .Where(type => type.IsClass && !type.IsAbstract && typeof(IUnitDefinitionProvider).IsAssignableFrom(type))
+                .Select(type => Activator.CreateInstance(type) as IUnitDefinitionProvider)
+                .Where(provider => provider != null)
+                .OrderBy(provider => provider.GetType().FullName)
+                .ToList();
+        }
+        public UnitDefinition NormalizeUnitDefinition(UnitDefinition definition, Func<Guid, UnitDefinition> getUnitDefinition = null)
+        {
+            if (definition == null)
+            {
+                return null;
+            }
 
-            return gun;
+            getUnitDefinition ??= GetRegisteredUnitDefinition;
+            foreach (IUnitDefinitionProvider provider in unitDefinitionProviders)
+            {
+                definition = provider.NormalizeDefinition(definition, getUnitDefinition);
+            }
+            return definition;
+        }
+        UnitDefinition GetRegisteredUnitDefinition(Guid unitId)
+        {
+            return unitDefinitions.Values.FirstOrDefault(definition => definition.Id == unitId);
         }
         public IEnumerable<IUnitBehavior> CreateKnownBehaviors()
         {

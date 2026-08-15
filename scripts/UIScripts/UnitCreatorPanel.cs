@@ -7,17 +7,28 @@ public partial class UnitCreatorPanel : Control
 {
 	const float PreviewSpriteScale = 4f;
 	const float LibraryDragThreshold = 8f;
+	const float TimelineMinPixelsPerSecond = 80f;
+	const float TimelineMaxPixelsPerSecond = 520f;
 	VBoxContainer tools;
 	VBoxContainer componentsList;
 	TabContainer bottomTabs;
-	VBoxContainer animationList;
-	VBoxContainer animationEditor;
+	OptionButton animationDropdown;
+	VBoxContainer animationTrackNames;
+	VBoxContainer animationTimelineRows;
+	HBoxContainer animationTimeHeader;
+	readonly List<Control> animationPlayheadSegments = new();
+	float timelinePixelsPerSecond = 180f;
+	float animationPlayheadTime;
+	List<StoredAnimation> visibleAnimations = new();
+	readonly Dictionary<Guid, UnitCreatorPreviewSprite> previewSprites = new();
+	DynamicAnimator previewAnimator;
 	Control previewArea;
 	Control previewLayer;
 	UnitSpriteAttachmentData draggedSprite;
 	UnitSubUnitAttachmentData draggedSubUnit;
 	StoredSprite draggedLibrarySprite;
 	StoredUnit draggedLibraryUnit;
+	StoredUnit draggedLibraryComponent;
 	StoredAnimation selectedAnimation;
 	bool libraryDragActive;
 	TextureRect dragGhost;
@@ -29,6 +40,8 @@ public partial class UnitCreatorPanel : Control
 
 	public override void _Ready()
 	{
+		DynamicAnimationPropertyAccessorRegistry.Register(new UnitCreatorPreviewSpriteAnimationAccessor());
+		DynamicAnimationPropertyAccessorRegistry.Register(new UnitCreatorPreviewSelectionAnimationAccessor());
 		MouseFilter = MouseFilterEnum.Ignore;
 		BuildLayout();
 		if (mAccess.unitCreatorManager != null)
@@ -44,6 +57,22 @@ public partial class UnitCreatorPanel : Control
 		if (mAccess.unitCreatorManager != null)
 		{
 			mAccess.unitCreatorManager.unitChanged -= OnUnitChanged;
+		}
+	}
+
+	public override void _Process(double delta)
+	{
+		if (previewAnimator == null)
+		{
+			return;
+		}
+
+		previewAnimator.Process(delta);
+		animationPlayheadTime = previewAnimator.Elapsed;
+		UpdateAnimationPlayhead();
+		if (previewAnimator.IsComplete)
+		{
+			previewAnimator = null;
 		}
 	}
 
@@ -145,8 +174,15 @@ public partial class UnitCreatorPanel : Control
 		unitsButton.Pressed += ShowUnitsSubMenu;
 		tools.AddChild(unitsButton);
 
+		Button componentsButton = new Button();
+		componentsButton.Text = "Open Components";
+		componentsButton.CustomMinimumSize = new Vector2(150, 34);
+		mAccess.styleManager.applyButtonStyle(componentsButton, "secondary");
+		componentsButton.Pressed += ShowComponentsSubMenu;
+		tools.AddChild(componentsButton);
+
 		Button saveUnitButton = new Button();
-		saveUnitButton.Text = "Save Unit";
+		saveUnitButton.Text = mAccess.unitCreatorManager?.activeUnit?.DefinitionKind == "component" ? "Save Component" : "Save Unit";
 		saveUnitButton.CustomMinimumSize = new Vector2(150, 34);
 		mAccess.styleManager.applyButtonStyle(saveUnitButton, "secondary");
 		saveUnitButton.Pressed += () => mAccess.unitCreatorManager.SaveActiveUnit();
@@ -257,7 +293,7 @@ public partial class UnitCreatorPanel : Control
 		scroll.AddChild(unitList);
 
 		List<StoredUnit> units = mAccess.entityFrameworkManager.GetUnits()
-			.Where(unit => unit.Name != "marineGun")
+			.Where(unit => !mAccess.unitCreatorManager.IsStoredComponent(unit))
 			.ToList();
 		if (units.Count == 0)
 		{
@@ -286,6 +322,91 @@ public partial class UnitCreatorPanel : Control
 		tools.AddChild(createUnitButton);
 	}
 
+	void ShowComponentsSubMenu()
+	{
+		ClearChildren(tools);
+
+		Button backButton = new Button();
+		backButton.Text = "Back";
+		backButton.CustomMinimumSize = new Vector2(150, 34);
+		mAccess.styleManager.applyButtonStyle(backButton, "secondary");
+		backButton.Pressed += ShowMainTools;
+		tools.AddChild(backButton);
+
+		tools.AddChild(CreatePanelTitle("Saved Components"));
+
+		ScrollContainer scroll = new ScrollContainer();
+		scroll.SizeFlagsVertical = SizeFlags.ExpandFill;
+		tools.AddChild(scroll);
+
+		VBoxContainer componentList = new VBoxContainer();
+		componentList.AddThemeConstantOverride("separation", 6);
+		scroll.AddChild(componentList);
+
+		List<StoredUnit> components = mAccess.entityFrameworkManager.GetUnits()
+			.Where(mAccess.unitCreatorManager.IsStoredComponent)
+			.ToList();
+		if (components.Count == 0)
+		{
+			Label emptyLabel = new Label();
+			emptyLabel.Text = "No saved components";
+			mAccess.styleManager.applyTextStyle(emptyLabel, "muted");
+			componentList.AddChild(emptyLabel);
+		}
+		else
+		{
+			foreach (StoredUnit storedComponent in components)
+			{
+				componentList.AddChild(CreateSavedComponentRow(storedComponent));
+			}
+		}
+
+		Button createComponentButton = new Button();
+		createComponentButton.Text = "Create Component";
+		createComponentButton.CustomMinimumSize = new Vector2(150, 34);
+		mAccess.styleManager.applyButtonStyle(createComponentButton, "secondary");
+		createComponentButton.Pressed += () =>
+		{
+			mAccess.unitCreatorManager.CreateNewComponent();
+			ShowMainTools();
+		};
+		tools.AddChild(createComponentButton);
+	}
+
+	Control CreateSavedComponentRow(StoredUnit storedComponent)
+	{
+		Button rowButton = new Button();
+		rowButton.Text = "";
+		mAccess.styleManager.applyButtonStyle(rowButton, "secondary");
+		rowButton.CustomMinimumSize = new Vector2(150, 54);
+		rowButton.GuiInput += inputEvent => HandleLibraryComponentInput(inputEvent, storedComponent);
+
+		HBoxContainer row = new HBoxContainer();
+		row.CustomMinimumSize = new Vector2(150, 54);
+		row.SetAnchorsPreset(LayoutPreset.FullRect);
+		row.OffsetLeft = 4;
+		row.OffsetRight = -4;
+		row.MouseFilter = MouseFilterEnum.Ignore;
+		rowButton.AddChild(row);
+
+		TextureRect preview = new TextureRect();
+		preview.CustomMinimumSize = new Vector2(44, 44);
+		preview.Texture = mAccess.unitCreatorManager.CreateUnitPreview(storedComponent);
+		preview.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
+		preview.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
+		preview.MouseFilter = MouseFilterEnum.Ignore;
+		row.AddChild(preview);
+
+		Label nameLabel = new Label();
+		nameLabel.Text = storedComponent.Name;
+		nameLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		nameLabel.MouseFilter = MouseFilterEnum.Ignore;
+		mAccess.styleManager.applyTextStyle(nameLabel, "default");
+		row.AddChild(nameLabel);
+
+		return rowButton;
+	}
+
 	Control CreateExpandingSpacer()
 	{
 		Control spacer = new Control();
@@ -295,50 +416,236 @@ public partial class UnitCreatorPanel : Control
 
 	Control CreateAnimationTab()
 	{
-		HSplitContainer split = new HSplitContainer();
-		split.Name = "Animation";
-		split.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-		split.SizeFlagsVertical = SizeFlags.ExpandFill;
-		split.SplitOffset = 210;
+		VBoxContainer animationTab = new VBoxContainer();
+		animationTab.Name = "Animation";
+		animationTab.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		animationTab.SizeFlagsVertical = SizeFlags.ExpandFill;
+		animationTab.AddThemeConstantOverride("separation", 6);
 
-		VBoxContainer left = new VBoxContainer();
-		left.CustomMinimumSize = new Vector2(200, 0);
-		left.AddThemeConstantOverride("separation", 6);
-		split.AddChild(left);
+		HBoxContainer controls = new HBoxContainer();
+		controls.AddThemeConstantOverride("separation", 4);
+		animationTab.AddChild(controls);
 
-		HBoxContainer header = new HBoxContainer();
-		left.AddChild(header);
+		controls.AddChild(CreateAnimationTransportButton("|<", () => SeekPreviewAnimation(false)));
+		controls.AddChild(CreateAnimationTransportButton("<", () => PlayPreviewAnimation(true)));
+		controls.AddChild(CreateAnimationTransportButton(">", () => PlayPreviewAnimation(false)));
+		controls.AddChild(CreateAnimationTransportButton(">|", () => SeekPreviewAnimation(true)));
 
-		Label title = CreatePanelTitle("Animations");
-		title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-		header.AddChild(title);
+		Button newAnimationButton = new Button();
+		newAnimationButton.Text = "+";
+		newAnimationButton.CustomMinimumSize = new Vector2(32, 28);
+		mAccess.styleManager.applyButtonStyle(newAnimationButton, "secondary");
+		newAnimationButton.Pressed += CreateNewDynamicAnimation;
+		controls.AddChild(newAnimationButton);
 
-		Button addButton = new Button();
-		addButton.Text = "+";
-		addButton.CustomMinimumSize = new Vector2(30, 28);
-		mAccess.styleManager.applyButtonStyle(addButton, "secondary");
-		addButton.Pressed += CreateNewDynamicAnimation;
-		header.AddChild(addButton);
+		animationDropdown = new OptionButton();
+		animationDropdown.CustomMinimumSize = new Vector2(220, 28);
+		animationDropdown.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		animationDropdown.ItemSelected += index =>
+		{
+			if (index >= 0 && index < visibleAnimations.Count)
+			{
+				selectedAnimation = visibleAnimations[(int)index];
+				animationPlayheadTime = 0;
+				RefreshAnimationTimeline();
+			}
+		};
+		controls.AddChild(animationDropdown);
 
-		ScrollContainer listScroll = new ScrollContainer();
-		listScroll.SizeFlagsVertical = SizeFlags.ExpandFill;
-		left.AddChild(listScroll);
+		HSplitContainer timelineSplit = new HSplitContainer();
+		timelineSplit.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		timelineSplit.SizeFlagsVertical = SizeFlags.ExpandFill;
+		timelineSplit.SplitOffset = 210;
+		animationTab.AddChild(timelineSplit);
 
-		animationList = new VBoxContainer();
-		animationList.AddThemeConstantOverride("separation", 4);
-		listScroll.AddChild(animationList);
+		VBoxContainer trackColumn = new VBoxContainer();
+		trackColumn.CustomMinimumSize = new Vector2(200, 0);
+		trackColumn.AddThemeConstantOverride("separation", 4);
+		timelineSplit.AddChild(trackColumn);
 
-		ScrollContainer editorScroll = new ScrollContainer();
-		editorScroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-		editorScroll.SizeFlagsVertical = SizeFlags.ExpandFill;
-		split.AddChild(editorScroll);
+		Button addTrackButton = new Button();
+		addTrackButton.Text = "Add Track";
+		addTrackButton.CustomMinimumSize = new Vector2(160, 28);
+		mAccess.styleManager.applyButtonStyle(addTrackButton, "secondary");
+		addTrackButton.Pressed += ShowVariablePicker;
+		trackColumn.AddChild(addTrackButton);
 
-		animationEditor = new VBoxContainer();
-		animationEditor.AddThemeConstantOverride("separation", 8);
-		editorScroll.AddChild(animationEditor);
+		ScrollContainer trackNameScroll = new ScrollContainer();
+		trackNameScroll.SizeFlagsVertical = SizeFlags.ExpandFill;
+		trackColumn.AddChild(trackNameScroll);
+
+		animationTrackNames = new VBoxContainer();
+		animationTrackNames.AddThemeConstantOverride("separation", 4);
+		trackNameScroll.AddChild(animationTrackNames);
+
+		ScrollContainer timelineScroll = new ScrollContainer();
+		timelineScroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		timelineScroll.SizeFlagsVertical = SizeFlags.ExpandFill;
+		timelineScroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Auto;
+		timelineScroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
+		timelineScroll.GuiInput += HandleTimelineZoomInput;
+		timelineSplit.AddChild(timelineScroll);
+
+		VBoxContainer timelineContent = new VBoxContainer();
+		timelineContent.AddThemeConstantOverride("separation", 4);
+		timelineScroll.AddChild(timelineContent);
+
+		animationTimeHeader = new HBoxContainer();
+		animationTimeHeader.CustomMinimumSize = new Vector2(520, 28);
+		timelineContent.AddChild(animationTimeHeader);
+
+		animationTimelineRows = new VBoxContainer();
+		animationTimelineRows.AddThemeConstantOverride("separation", 4);
+		timelineContent.AddChild(animationTimelineRows);
 
 		RefreshAnimationsTab();
-		return split;
+		return animationTab;
+	}
+
+	Button CreateAnimationTransportButton(string text, Action action)
+	{
+		Button button = new Button();
+		button.Text = text;
+		button.CustomMinimumSize = new Vector2(32, 28);
+		mAccess.styleManager.applyButtonStyle(button, "secondary");
+		button.Pressed += action;
+		return button;
+	}
+
+	void PlayPreviewAnimation(bool reverse)
+	{
+		List<UnitCreatorPreviewSprite> targets = GetSelectedPreviewSprites();
+		if (selectedAnimation == null || targets.Count == 0)
+		{
+			return;
+		}
+
+		ResetPreviewAnimationTargets(targets);
+		DynamicAnimationDefinition definition = GetSelectedPreviewAnimationDefinition();
+		previewAnimator = new DynamicAnimator(
+			definition,
+			new UnitCreatorPreviewAnimationTarget(targets),
+			null)
+		{
+			Speed = reverse ? -1f : 1f
+		};
+		previewAnimator.Seek(reverse ? definition.Duration : 0f);
+		animationPlayheadTime = previewAnimator.Elapsed;
+		UpdateAnimationPlayhead();
+	}
+
+	void SeekPreviewAnimation(bool end)
+	{
+		List<UnitCreatorPreviewSprite> targets = GetSelectedPreviewSprites();
+		if (selectedAnimation == null || targets.Count == 0)
+		{
+			return;
+		}
+
+		ResetPreviewAnimationTargets(targets);
+		DynamicAnimationDefinition definition = GetSelectedPreviewAnimationDefinition();
+		previewAnimator = new DynamicAnimator(definition, new UnitCreatorPreviewAnimationTarget(targets), null);
+		previewAnimator.Seek(end ? definition.Duration : 0);
+		animationPlayheadTime = previewAnimator.Elapsed;
+		UpdateAnimationPlayhead();
+		previewAnimator = null;
+	}
+
+	void ResetPreviewAnimationTargets(IEnumerable<UnitCreatorPreviewSprite> targets)
+	{
+		foreach (UnitCreatorPreviewSprite target in targets)
+		{
+			target.ResetAnimationState();
+		}
+	}
+
+	DynamicAnimationDefinition ToDynamicAnimationDefinition(StoredAnimation animation)
+	{
+		return new DynamicAnimationDefinition
+		{
+			Name = animation.Name,
+			Duration = animation.Duration,
+			Variables = animation.Variables.Select(variable => new DynamicAnimationVariable
+			{
+				Name = variable.Name,
+				Source = variable.Source
+			}).ToList(),
+			PropertyRequirements = animation.PropertyRequirements.Select(requirement => new DynamicAnimationPropertyRequirement
+			{
+				TargetName = requirement.TargetName,
+				TargetTypeName = requirement.TargetTypeName,
+				PropertyName = requirement.PropertyName,
+				ValueTypeName = requirement.ValueTypeName,
+				InterfaceName = requirement.InterfaceName
+			}).ToList(),
+			Transformations = animation.Transformations.Select(transformation => new DynamicAnimationTransformation
+			{
+				PropertyName = transformation.PropertyName,
+				LoopVariable = transformation.LoopVariable,
+				LoopCountVariable = transformation.LoopCountVariable,
+				StartTime = transformation.StartTime,
+				EndTime = transformation.EndTime,
+				StartValue = transformation.StartValue,
+				EndValue = transformation.EndValue,
+				FunctionType = transformation.FunctionType
+			}).ToList()
+		};
+	}
+
+	DynamicAnimationDefinition GetSelectedPreviewAnimationDefinition()
+	{
+		if (selectedAnimation != null &&
+			mAccess.animationManager != null &&
+			mAccess.animationManager.dynamicAnimationDefinitions.TryGetValue(
+				selectedAnimation.Name,
+				out DynamicAnimationDefinition runtimeDefinition))
+		{
+			return runtimeDefinition;
+		}
+
+		return ToDynamicAnimationDefinition(selectedAnimation);
+	}
+
+	StoredAnimation ToStoredAnimation(DynamicAnimationDefinition definition, StoredAnimation storedAnimation = null)
+	{
+		return new StoredAnimation
+		{
+			Id = storedAnimation?.Id ?? CreateRuntimeAnimationId(definition.Name),
+			Name = definition.Name,
+			AnimationType = storedAnimation?.AnimationType ?? "DynamicProperty",
+			Duration = definition.Duration,
+			Variables = definition.Variables.Select(variable => new StoredAnimationVariable
+			{
+				Name = variable.Name,
+				Source = variable.Source
+			}).ToList(),
+			PropertyRequirements = definition.PropertyRequirements.Select(requirement => new StoredAnimationPropertyRequirement
+			{
+				TargetName = requirement.TargetName,
+				TargetTypeName = requirement.TargetTypeName,
+				PropertyName = requirement.PropertyName,
+				ValueTypeName = requirement.ValueTypeName,
+				InterfaceName = requirement.InterfaceName
+			}).ToList(),
+			Transformations = definition.Transformations.Select(transformation => new StoredAnimationTransformation
+			{
+				PropertyName = transformation.PropertyName,
+				LoopVariable = transformation.LoopVariable,
+				LoopCountVariable = transformation.LoopCountVariable,
+				StartTime = transformation.StartTime,
+				EndTime = transformation.EndTime,
+				StartValue = transformation.StartValue,
+				EndValue = transformation.EndValue,
+				FunctionType = transformation.FunctionType
+			}).ToList()
+		};
+	}
+
+	Guid CreateRuntimeAnimationId(string animationName)
+	{
+		byte[] hash = System.Security.Cryptography.SHA256.HashData(
+			System.Text.Encoding.UTF8.GetBytes("runtime-animation:" + animationName));
+		return new Guid(hash.Take(16).ToArray());
 	}
 
 	Control CreateSavedUnitRow(StoredUnit storedUnit)
@@ -414,7 +721,7 @@ public partial class UnitCreatorPanel : Control
 			return;
 		}
 
-		if (draggedLibrarySprite != null || draggedLibraryUnit != null)
+		if (draggedLibrarySprite != null || draggedLibraryUnit != null || draggedLibraryComponent != null)
 		{
 			HandleActiveLibraryDrag(inputEvent);
 			if (libraryDragActive)
@@ -501,6 +808,30 @@ public partial class UnitCreatorPanel : Control
 		}
 	}
 
+	void HandleLibraryComponentInput(InputEvent inputEvent, StoredUnit storedComponent)
+	{
+		if (inputEvent is InputEventMouseButton mouseButton && mouseButton.ButtonIndex == MouseButton.Left)
+		{
+			if (mouseButton.Pressed)
+			{
+				BeginLibraryComponentDrag(storedComponent, mouseButton.GlobalPosition);
+			}
+			else
+			{
+				EndLibraryComponentDrag(mouseButton.GlobalPosition);
+			}
+			AcceptEvent();
+		}
+		else if (inputEvent is InputEventMouseMotion mouseMotion)
+		{
+			UpdateLibraryDrag(mouseMotion.GlobalPosition);
+			if (libraryDragActive)
+			{
+				AcceptEvent();
+			}
+		}
+	}
+
 	void HandleActiveLibraryDrag(InputEvent inputEvent)
 	{
 		if (inputEvent is InputEventMouseMotion mouseMotion)
@@ -517,6 +848,10 @@ public partial class UnitCreatorPanel : Control
 			{
 				EndLibrarySpriteDrag(mouseButton.GlobalPosition);
 			}
+			else if (draggedLibraryComponent != null)
+			{
+				EndLibraryComponentDrag(mouseButton.GlobalPosition);
+			}
 			else
 			{
 				EndLibraryUnitDrag(mouseButton.GlobalPosition);
@@ -529,6 +864,7 @@ public partial class UnitCreatorPanel : Control
 	{
 		draggedLibrarySprite = storedSprite;
 		draggedLibraryUnit = null;
+		draggedLibraryComponent = null;
 		libraryDragActive = false;
 		libraryDragStart = globalPosition;
 	}
@@ -537,13 +873,23 @@ public partial class UnitCreatorPanel : Control
 	{
 		draggedLibraryUnit = storedUnit;
 		draggedLibrarySprite = null;
+		draggedLibraryComponent = null;
+		libraryDragActive = false;
+		libraryDragStart = globalPosition;
+	}
+
+	void BeginLibraryComponentDrag(StoredUnit storedComponent, Vector2 globalPosition)
+	{
+		draggedLibraryComponent = storedComponent;
+		draggedLibraryUnit = null;
+		draggedLibrarySprite = null;
 		libraryDragActive = false;
 		libraryDragStart = globalPosition;
 	}
 
 	void UpdateLibraryDrag(Vector2 globalPosition)
 	{
-		if (draggedLibrarySprite == null && draggedLibraryUnit == null)
+		if (draggedLibrarySprite == null && draggedLibraryUnit == null && draggedLibraryComponent == null)
 		{
 			return;
 		}
@@ -597,10 +943,32 @@ public partial class UnitCreatorPanel : Control
 		ClearLibraryDrag();
 	}
 
+	void EndLibraryComponentDrag(Vector2 globalPosition)
+	{
+		if (draggedLibraryComponent == null)
+		{
+			return;
+		}
+
+		if (libraryDragActive && TryGetPreviewCenteredPosition(globalPosition, out Vector2 dropPosition))
+		{
+			mAccess.unitCreatorManager.AddComponentAttachment(draggedLibraryComponent, dropPosition);
+			ShowMainTools();
+		}
+		else if (!libraryDragActive)
+		{
+			mAccess.unitCreatorManager.LoadStoredUnit(draggedLibraryComponent);
+			ShowMainTools();
+		}
+
+		ClearLibraryDrag();
+	}
+
 	void ClearLibraryDrag()
 	{
 		draggedLibrarySprite = null;
 		draggedLibraryUnit = null;
+		draggedLibraryComponent = null;
 		libraryDragActive = false;
 		ClearDragGhost();
 	}
@@ -652,6 +1020,10 @@ public partial class UnitCreatorPanel : Control
 		if (draggedLibraryUnit != null)
 		{
 			return mAccess.unitCreatorManager.CreateUnitPreview(draggedLibraryUnit);
+		}
+		if (draggedLibraryComponent != null)
+		{
+			return mAccess.unitCreatorManager.CreateUnitPreview(draggedLibraryComponent);
 		}
 
 		return null;
@@ -784,49 +1156,38 @@ public partial class UnitCreatorPanel : Control
 
 	void RefreshAnimationsTab()
 	{
-		if (animationList == null || animationEditor == null)
+		if (animationDropdown == null || animationTrackNames == null || animationTimelineRows == null)
 		{
 			return;
 		}
 
-		ClearChildren(animationList);
-		List<StoredAnimation> animations = GetUsableAnimations();
+		visibleAnimations = GetUsableAnimations();
 		if (selectedAnimation != null)
 		{
-			selectedAnimation = animations.FirstOrDefault(animation => animation.Id == selectedAnimation.Id);
+			selectedAnimation = visibleAnimations.FirstOrDefault(animation => animation.Id == selectedAnimation.Id);
 		}
+		selectedAnimation ??= visibleAnimations.FirstOrDefault();
 
-		if (animations.Count == 0)
+		animationDropdown.Clear();
+		if (visibleAnimations.Count == 0)
 		{
-			Label empty = new Label();
-			empty.Text = "No usable animations";
-			mAccess.styleManager.applyTextStyle(empty, "muted");
-			animationList.AddChild(empty);
+			animationDropdown.AddItem("No animations");
+			animationDropdown.Disabled = true;
 		}
 		else
 		{
-			foreach (StoredAnimation animation in animations)
+			animationDropdown.Disabled = false;
+			for (int i = 0; i < visibleAnimations.Count; i++)
 			{
-				animationList.AddChild(CreateAnimationRow(animation));
+				animationDropdown.AddItem(visibleAnimations[i].Name);
+				if (selectedAnimation?.Id == visibleAnimations[i].Id)
+				{
+					animationDropdown.Select(i);
+				}
 			}
 		}
 
-		RefreshAnimationEditor();
-	}
-
-	Control CreateAnimationRow(StoredAnimation animation)
-	{
-		Button button = new Button();
-		button.Text = animation.Name;
-		button.Alignment = HorizontalAlignment.Left;
-		button.CustomMinimumSize = new Vector2(180, 28);
-		mAccess.styleManager.applyButtonStyle(button, selectedAnimation?.Id == animation.Id ? "selected" : "secondary");
-		button.Pressed += () =>
-		{
-			selectedAnimation = animation;
-			RefreshAnimationsTab();
-		};
-		return button;
+		RefreshAnimationTimeline();
 	}
 
 	List<StoredAnimation> GetUsableAnimations()
@@ -836,8 +1197,20 @@ public partial class UnitCreatorPanel : Control
 			return new List<StoredAnimation>();
 		}
 
+		Dictionary<string, StoredAnimation> animationsByName = mAccess.entityFrameworkManager
+			.GetAnimations()
+			.ToDictionary(animation => animation.Name, StringComparer.Ordinal);
+		if (mAccess.animationManager != null)
+		{
+			foreach (DynamicAnimationDefinition definition in mAccess.animationManager.dynamicAnimationDefinitions.Values)
+			{
+				animationsByName.TryGetValue(definition.Name, out StoredAnimation storedAnimation);
+				animationsByName[definition.Name] = ToStoredAnimation(definition, storedAnimation);
+			}
+		}
+
 		HashSet<string> usableTypeNames = GetUsableMetadataTypeNames();
-		return mAccess.entityFrameworkManager.GetAnimations()
+		return animationsByName.Values
 			.Where(animation => AnimationMatchesUnitMetadata(animation, usableTypeNames))
 			.OrderBy(animation => animation.Name)
 			.ToList();
@@ -860,24 +1233,42 @@ public partial class UnitCreatorPanel : Control
 		HashSet<string> typeNames = new HashSet<string>();
 		foreach (StoredUnitComponentType metadata in GetUsableMetadataTypes())
 		{
-			typeNames.Add(metadata.TypeName);
+			AddTypeHierarchy(typeNames, metadata.TypeName);
 			if (!string.IsNullOrEmpty(metadata.DirectBaseTypeName))
 			{
-				typeNames.Add(metadata.DirectBaseTypeName);
+				AddTypeHierarchy(typeNames, metadata.DirectBaseTypeName);
 			}
 			foreach (StoredUnitComponentObjectMember member in metadata.ObjectMembers)
 			{
 				if (!string.IsNullOrEmpty(member.MemberTypeName))
 				{
-					typeNames.Add(member.MemberTypeName);
+					AddTypeHierarchy(typeNames, member.MemberTypeName);
 				}
 				if (!string.IsNullOrEmpty(member.ElementTypeName))
 				{
-					typeNames.Add(member.ElementTypeName);
+					AddTypeHierarchy(typeNames, member.ElementTypeName);
 				}
 			}
 		}
 		return typeNames;
+	}
+
+	void AddTypeHierarchy(HashSet<string> typeNames, string typeName)
+	{
+		if (string.IsNullOrEmpty(typeName))
+		{
+			return;
+		}
+
+		typeNames.Add(typeName);
+		Type type = AppDomain.CurrentDomain.GetAssemblies()
+			.Select(assembly => assembly.GetType(typeName, false))
+			.FirstOrDefault(candidate => candidate != null);
+		while (type?.BaseType != null)
+		{
+			type = type.BaseType;
+			typeNames.Add(type.FullName ?? type.Name);
+		}
 	}
 
 	List<StoredUnitComponentType> GetUsableMetadataTypes()
@@ -1040,120 +1431,157 @@ public partial class UnitCreatorPanel : Control
 		return currentComponent;
 	}
 
-	void RefreshAnimationEditor()
+	void RefreshAnimationTimeline()
 	{
-		ClearChildren(animationEditor);
+		animationPlayheadSegments.Clear();
+		ClearChildren(animationTrackNames);
+		ClearChildren(animationTimelineRows);
+		ClearChildren(animationTimeHeader);
+
 		if (selectedAnimation == null)
 		{
-			Label hint = new Label();
-			hint.Text = "Open or create an animation";
-			mAccess.styleManager.applyTextStyle(hint, "muted");
-			animationEditor.AddChild(hint);
+			Label emptyTrack = new Label();
+			emptyTrack.Text = "No animation selected";
+			mAccess.styleManager.applyTextStyle(emptyTrack, "muted");
+			animationTrackNames.AddChild(emptyTrack);
 			return;
 		}
 
-		HBoxContainer header = new HBoxContainer();
-		header.AddThemeConstantOverride("separation", 8);
-		animationEditor.AddChild(header);
+		float duration = GetTimelineDuration();
+		animationPlayheadTime = Mathf.Clamp(animationPlayheadTime, 0, duration);
+		float width = Mathf.Max(duration * timelinePixelsPerSecond, 520f);
+		AddTimeSignatureHeader(duration, width);
 
-		LineEdit nameEdit = new LineEdit();
-		nameEdit.Text = selectedAnimation.Name;
-		nameEdit.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-		nameEdit.TextSubmitted += value =>
-		{
-			selectedAnimation.Name = value;
-			SaveSelectedAnimation();
-		};
-		nameEdit.FocusExited += () =>
-		{
-			selectedAnimation.Name = nameEdit.Text;
-			SaveSelectedAnimation();
-		};
-		header.AddChild(nameEdit);
-
-		Button addTrackButton = new Button();
-		addTrackButton.Text = "Add Variable";
-		addTrackButton.CustomMinimumSize = new Vector2(120, 30);
-		mAccess.styleManager.applyButtonStyle(addTrackButton, "secondary");
-		addTrackButton.Pressed += ShowVariablePicker;
-		header.AddChild(addTrackButton);
-
-		foreach (StoredAnimationTransformation track in selectedAnimation.Transformations.OrderBy(track => track.PropertyName))
-		{
-			animationEditor.AddChild(CreateAnimationTrackRow(track));
-		}
-
-		if (selectedAnimation.Transformations.Count == 0)
+		List<IGrouping<string, StoredAnimationTransformation>> trackGroups = selectedAnimation.Transformations
+			.GroupBy(track => track.PropertyName)
+			.OrderBy(group => group.Key)
+			.ToList();
+		if (trackGroups.Count == 0)
 		{
 			Label empty = new Label();
-			empty.Text = "No variable tracks";
+			empty.Text = "No tracks";
 			mAccess.styleManager.applyTextStyle(empty, "muted");
-			animationEditor.AddChild(empty);
+			animationTrackNames.AddChild(empty);
+			UpdateAnimationPlayhead();
+			return;
+		}
+
+		foreach (IGrouping<string, StoredAnimationTransformation> trackGroup in trackGroups)
+		{
+			animationTrackNames.AddChild(CreateTrackNameRow(trackGroup.Key));
+			animationTimelineRows.AddChild(CreateTimelineLane(trackGroup, width));
+		}
+
+		UpdateAnimationPlayhead();
+	}
+
+	void AddTimeSignatureHeader(float duration, float width)
+	{
+		Control header = new Control();
+		header.CustomMinimumSize = new Vector2(width, 28);
+		animationTimeHeader.AddChild(header);
+
+		int markerCount = Mathf.Max(2, Mathf.CeilToInt(duration) + 1);
+		for (int i = 0; i < markerCount; i++)
+		{
+			float time = i;
+			Label marker = new Label();
+			marker.Text = time.ToString("0.##") + "s";
+			marker.CustomMinimumSize = new Vector2(48, 24);
+			marker.Position = new Vector2(time * timelinePixelsPerSecond, 2);
+			mAccess.styleManager.applyTextStyle(marker, "muted");
+			header.AddChild(marker);
+		}
+
+		AddAnimationPlayheadSegment(header, 28);
+	}
+
+	Control CreateTrackNameRow(string propertyName)
+	{
+		Label label = new Label();
+		label.Text = propertyName;
+		label.CustomMinimumSize = new Vector2(180, 30);
+		label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+		mAccess.styleManager.applyTextStyle(label, "default");
+		return label;
+	}
+
+	Control CreateTimelineLane(IEnumerable<StoredAnimationTransformation> tracks, float width)
+	{
+		Panel lane = new Panel();
+		lane.CustomMinimumSize = new Vector2(width, 30);
+		mAccess.styleManager.applyPanelStyle(lane, "subtle");
+		foreach (StoredAnimationTransformation track in tracks)
+		{
+			float start = Mathf.Max(track.StartTime, 0);
+			float end = Mathf.Max(track.EndTime, start + 0.01f);
+			ColorRect bar = new ColorRect();
+			bar.Color = new Color(0.2f, 0.62f, 0.95f, 0.85f);
+			bar.Position = new Vector2(start * timelinePixelsPerSecond, 6);
+			bar.CustomMinimumSize = new Vector2(Mathf.Max((end - start) * timelinePixelsPerSecond, 4), 18);
+			bar.Size = bar.CustomMinimumSize;
+			bar.TooltipText = track.StartTime + "s - " + track.EndTime + "s";
+			lane.AddChild(bar);
+		}
+		AddAnimationPlayheadSegment(lane, 30);
+		return lane;
+	}
+
+	void AddAnimationPlayheadSegment(Control parent, float height)
+	{
+		ColorRect playhead = new ColorRect();
+		playhead.Color = new Color(0.95f, 0.32f, 0.22f);
+		playhead.MouseFilter = MouseFilterEnum.Ignore;
+		playhead.CustomMinimumSize = new Vector2(2, height);
+		playhead.Size = playhead.CustomMinimumSize;
+		parent.AddChild(playhead);
+		animationPlayheadSegments.Add(playhead);
+	}
+
+	void UpdateAnimationPlayhead()
+	{
+		float x = animationPlayheadTime * timelinePixelsPerSecond;
+		foreach (Control segment in animationPlayheadSegments)
+		{
+			if (GodotObject.IsInstanceValid(segment))
+			{
+				segment.Position = new Vector2(x, 0);
+			}
 		}
 	}
 
-	Control CreateAnimationTrackRow(StoredAnimationTransformation track)
+	float GetTimelineDuration()
 	{
-		PanelContainer panel = CreatePanel(new Vector2(0, 34));
-		HBoxContainer row = new HBoxContainer();
-		row.AddThemeConstantOverride("separation", 6);
-		panel.AddChild(row);
-
-		Label name = new Label();
-		name.Text = track.PropertyName;
-		name.CustomMinimumSize = new Vector2(180, 24);
-		name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-		mAccess.styleManager.applyTextStyle(name, "default");
-		row.AddChild(name);
-
-		AddTrackNumberField(row, "Start", track.StartTime, value => track.StartTime = value);
-		AddTrackNumberField(row, "End", track.EndTime, value => track.EndTime = value);
-		AddTrackTextField(row, track.StartValue, value => track.StartValue = value);
-		AddTrackTextField(row, track.EndValue, value => track.EndValue = value);
-		AddTrackTextField(row, track.FunctionType, value => track.FunctionType = value);
-
-		Button remove = new Button();
-		remove.Text = "x";
-		remove.CustomMinimumSize = new Vector2(28, 26);
-		mAccess.styleManager.applyButtonStyle(remove, "secondary");
-		remove.Pressed += () =>
+		if (selectedAnimation == null)
 		{
-			selectedAnimation.Transformations.Remove(track);
-			SaveSelectedAnimation();
-		};
-		row.AddChild(remove);
+			return 1f;
+		}
 
-		return panel;
+		float trackEnd = selectedAnimation.Transformations.Count == 0
+			? 1f
+			: selectedAnimation.Transformations.Max(track => track.EndTime);
+		return MathF.Max(MathF.Max(selectedAnimation.Duration, trackEnd), 1f);
 	}
 
-	void AddTrackNumberField(HBoxContainer row, string placeholder, float value, Action<float> setValue)
+	void HandleTimelineZoomInput(InputEvent inputEvent)
 	{
-		LineEdit edit = new LineEdit();
-		edit.PlaceholderText = placeholder;
-		edit.Text = value.ToString();
-		edit.CustomMinimumSize = new Vector2(52, 26);
-		edit.FocusExited += () =>
+		if (inputEvent is not InputEventMouseButton mouseButton || !mouseButton.Pressed)
 		{
-			if (float.TryParse(edit.Text, out float parsed))
-			{
-				setValue(parsed);
-				SaveSelectedAnimation();
-			}
-		};
-		row.AddChild(edit);
-	}
+			return;
+		}
 
-	void AddTrackTextField(HBoxContainer row, string value, Action<string> setValue)
-	{
-		LineEdit edit = new LineEdit();
-		edit.Text = value;
-		edit.CustomMinimumSize = new Vector2(72, 26);
-		edit.FocusExited += () =>
+		if (mouseButton.ButtonIndex == MouseButton.WheelUp)
 		{
-			setValue(edit.Text);
-			SaveSelectedAnimation();
-		};
-		row.AddChild(edit);
+			timelinePixelsPerSecond = Mathf.Min(timelinePixelsPerSecond * 1.15f, TimelineMaxPixelsPerSecond);
+			RefreshAnimationTimeline();
+			AcceptEvent();
+		}
+		else if (mouseButton.ButtonIndex == MouseButton.WheelDown)
+		{
+			timelinePixelsPerSecond = Mathf.Max(timelinePixelsPerSecond / 1.15f, TimelineMinPixelsPerSecond);
+			RefreshAnimationTimeline();
+			AcceptEvent();
+		}
 	}
 
 	void CreateNewDynamicAnimation()
@@ -1284,6 +1712,7 @@ public partial class UnitCreatorPanel : Control
 		}
 
 		mAccess.entityFrameworkManager.SaveAnimation(selectedAnimation);
+		mAccess.animationManager?.RegisterDynamicAnimation(ToDynamicAnimationDefinition(selectedAnimation));
 		RefreshAnimationsTab();
 	}
 
@@ -1296,6 +1725,8 @@ public partial class UnitCreatorPanel : Control
 
 	void RefreshPreview()
 	{
+		previewAnimator = null;
+		previewSprites.Clear();
 		ClearDragGhost();
 		foreach (Node child in previewLayer.GetChildren())
 		{
@@ -1334,7 +1765,10 @@ public partial class UnitCreatorPanel : Control
 		Vector2 componentOrigin = origin + component.Position;
 		foreach (UnitSpriteAttachmentData sprite in component.SpriteAttachments.OrderBy(sprite => sprite.Order))
 		{
-			AddPreviewSprite(sprite, componentOrigin + GetComponentSpriteOffset(component, sprite));
+			AddPreviewSprite(
+				sprite,
+				componentOrigin + GetComponentSpriteOffset(component, sprite),
+				componentOrigin);
 		}
 
 		foreach (UnitComponentAttachmentData childComponent in component.ChildComponents.OrderBy(child => child.Order))
@@ -1367,7 +1801,7 @@ public partial class UnitCreatorPanel : Control
 		AddUnitDefinitionPreview(childDefinition, origin + subUnit.Position);
 	}
 
-	void AddPreviewSprite(UnitSpriteAttachmentData sprite, Vector2 origin)
+	void AddPreviewSprite(UnitSpriteAttachmentData sprite, Vector2 origin, Vector2? animationOrigin = null)
 	{
 		Texture2D texture = mAccess.unitCreatorManager.CreateAttachmentPreview(sprite);
 		if (texture == null)
@@ -1375,19 +1809,95 @@ public partial class UnitCreatorPanel : Control
 			return;
 		}
 
-		TextureRect spritePreview = new TextureRect();
+		UnitCreatorPreviewSprite spritePreview = new UnitCreatorPreviewSprite();
 		spritePreview.Texture = texture;
-		spritePreview.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
-		spritePreview.StretchMode = TextureRect.StretchModeEnum.Scale;
-		MakeInputTransparent(spritePreview);
-		spritePreview.SetAnchorsPreset(LayoutPreset.Center);
-		Rect2 bounds = GetCenteredSpritePreviewBounds(sprite, texture, origin);
-		spritePreview.OffsetLeft = bounds.Position.X;
-		spritePreview.OffsetTop = bounds.Position.Y;
-		spritePreview.OffsetRight = bounds.End.X;
-		spritePreview.OffsetBottom = bounds.End.Y;
+		spritePreview.Centered = true;
+		spritePreview.Position = previewLayer.Size / 2f + origin + sprite.Position;
+		spritePreview.Scale = Vector2.One * PreviewSpriteScale * sprite.Scale;
+		spritePreview.AnimationRestPosition = spritePreview.Position;
+		spritePreview.AnimationBasePosition = previewLayer.Size / 2f + (animationOrigin ?? origin) + sprite.Position;
+		spritePreview.AnimationBaseScale = spritePreview.Scale;
 		spritePreview.Rotation = sprite.Rotation;
+		spritePreview.ZIndex = sprite.Order;
+		spritePreview.AnimationBaseRotation = spritePreview.Rotation;
+		spritePreview.AnimationBaseZIndex = spritePreview.ZIndex;
 		previewLayer.AddChild(spritePreview);
+		previewSprites[sprite.Id] = spritePreview;
+	}
+
+	List<UnitCreatorPreviewSprite> GetSelectedPreviewSprites()
+	{
+		if (mAccess.unitCreatorManager?.activeUnit == null)
+		{
+			return new List<UnitCreatorPreviewSprite>();
+		}
+
+		IEnumerable<UnitSpriteAttachmentData> attachments;
+		if (string.IsNullOrEmpty(selectedComponentPath))
+		{
+			attachments = GetDefinitionSprites(mAccess.unitCreatorManager.activeUnit);
+		}
+		else
+		{
+			string[] pathParts = selectedComponentPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+			string selectedPart = pathParts.LastOrDefault() ?? "";
+			if (selectedPart.StartsWith("sprite:") &&
+				Guid.TryParse(selectedPart["sprite:".Length..], out Guid spriteId))
+			{
+				return previewSprites.TryGetValue(spriteId, out UnitCreatorPreviewSprite selectedSprite)
+					? new List<UnitCreatorPreviewSprite> { selectedSprite }
+					: new List<UnitCreatorPreviewSprite>();
+			}
+			if (selectedPart.StartsWith("component:"))
+			{
+				UnitComponentAttachmentData component = GetComponentForPath(pathParts);
+				attachments = component == null
+					? Array.Empty<UnitSpriteAttachmentData>()
+					: GetComponentSprites(component);
+			}
+			else
+			{
+				UnitDefinition definition = GetDefinitionForPath(pathParts);
+				attachments = definition == null
+					? Array.Empty<UnitSpriteAttachmentData>()
+					: GetDefinitionSprites(definition);
+			}
+		}
+
+		return attachments
+			.Select(attachment => previewSprites.TryGetValue(attachment.Id, out UnitCreatorPreviewSprite sprite) ? sprite : null)
+			.Where(sprite => sprite != null)
+			.ToList();
+	}
+
+	IEnumerable<UnitSpriteAttachmentData> GetDefinitionSprites(UnitDefinition definition)
+	{
+		foreach (UnitSpriteAttachmentData sprite in definition.SpriteAttachments)
+		{
+			yield return sprite;
+		}
+		foreach (UnitComponentAttachmentData component in definition.ComponentAttachments)
+		{
+			foreach (UnitSpriteAttachmentData sprite in GetComponentSprites(component))
+			{
+				yield return sprite;
+			}
+		}
+	}
+
+	IEnumerable<UnitSpriteAttachmentData> GetComponentSprites(UnitComponentAttachmentData component)
+	{
+		foreach (UnitSpriteAttachmentData sprite in component.SpriteAttachments.OrderBy(sprite => sprite.Order))
+		{
+			yield return sprite;
+		}
+		foreach (UnitComponentAttachmentData child in component.ChildComponents.OrderBy(child => child.Order))
+		{
+			foreach (UnitSpriteAttachmentData sprite in GetComponentSprites(child))
+			{
+				yield return sprite;
+			}
+		}
 	}
 
 	Rect2 GetSpritePreviewBounds(UnitSpriteAttachmentData sprite)
@@ -1648,5 +2158,149 @@ public partial class UnitCreatorPanel : Control
 		public string PropertyName;
 		public string ValueTypeName;
 		public string Label;
+	}
+}
+
+public partial class UnitCreatorPreviewSprite : Sprite2D
+{
+	public Vector2 AnimationRestPosition { get; set; }
+	public Vector2 AnimationBasePosition { get; set; }
+	public Vector2 AnimationBaseScale { get; set; } = Vector2.One;
+	public float AnimationBaseRotation { get; set; }
+	public int AnimationBaseZIndex { get; set; }
+
+	public void ResetAnimationState()
+	{
+		Position = AnimationRestPosition;
+		Scale = AnimationBaseScale;
+		Rotation = AnimationBaseRotation;
+		ZIndex = AnimationBaseZIndex;
+	}
+}
+
+public class UnitCreatorPreviewSpriteAnimationAccessor : IDynamicAnimationPropertyAccessor
+{
+	public string TargetName => "item";
+	public Type TargetType => typeof(UnitCreatorPreviewSprite);
+
+	public bool Supports(string targetName, string propertyName, Type targetType)
+	{
+		return !string.IsNullOrEmpty(targetName) &&
+			TargetType.IsAssignableFrom(targetType) &&
+			(propertyName == "Position.X" ||
+			 propertyName == "Position.Y" ||
+			 propertyName == "ZIndex" ||
+			 propertyName == "Rotation" ||
+			 propertyName == "RotationDegrees" ||
+			 propertyName == "Scale.X" ||
+			 propertyName == "Scale.Y");
+	}
+
+	public void SetValue(object target, string propertyName, float value)
+	{
+		if (target is not UnitCreatorPreviewSprite sprite)
+		{
+			return;
+		}
+
+		switch (propertyName)
+		{
+			case "Position.X":
+				sprite.Position = sprite.Position with { X = sprite.AnimationBasePosition.X + value };
+				break;
+			case "Position.Y":
+				sprite.Position = sprite.Position with { Y = sprite.AnimationBasePosition.Y + value };
+				break;
+			case "ZIndex":
+				sprite.ZIndex = (int)value;
+				break;
+			case "Rotation":
+				sprite.Rotation = sprite.AnimationBaseRotation + value;
+				break;
+			case "RotationDegrees":
+				sprite.RotationDegrees = Mathf.RadToDeg(sprite.AnimationBaseRotation) + value;
+				break;
+			case "Scale.X":
+				sprite.Scale = sprite.Scale with { X = sprite.AnimationBaseScale.X * value };
+				break;
+			case "Scale.Y":
+				sprite.Scale = sprite.Scale with { Y = sprite.AnimationBaseScale.Y * value };
+				break;
+		}
+	}
+}
+
+public class UnitCreatorPreviewSelection
+{
+	public IReadOnlyList<UnitCreatorPreviewSprite> Sprites { get; }
+
+	public UnitCreatorPreviewSelection(IReadOnlyList<UnitCreatorPreviewSprite> sprites)
+	{
+		Sprites = sprites;
+	}
+}
+
+public class UnitCreatorPreviewAnimationTarget : IDynamicAnimationTarget
+{
+	readonly IReadOnlyList<UnitCreatorPreviewSprite> sprites;
+	readonly UnitCreatorPreviewSelection selection;
+
+	public UnitCreatorPreviewAnimationTarget(IEnumerable<UnitCreatorPreviewSprite> sprites)
+	{
+		this.sprites = sprites?.ToList() ?? new List<UnitCreatorPreviewSprite>();
+		selection = new UnitCreatorPreviewSelection(this.sprites);
+	}
+
+	public float GetVariable(string source)
+	{
+		return source == "iterator.count" || source == "enumerable.count"
+			? sprites.Count
+			: 0f;
+	}
+
+	public object ResolveAnimationTarget(string name, int index)
+	{
+		if (string.IsNullOrEmpty(name) || sprites.Count == 0)
+		{
+			return null;
+		}
+
+		if (index < 0)
+		{
+			return selection;
+		}
+
+		return index < sprites.Count ? sprites[index] : null;
+	}
+
+	public void CompleteAnimation()
+	{
+	}
+}
+
+public class UnitCreatorPreviewSelectionAnimationAccessor : IDynamicAnimationPropertyAccessor
+{
+	readonly UnitCreatorPreviewSpriteAnimationAccessor spriteAccessor = new();
+
+	public string TargetName => "item";
+	public Type TargetType => typeof(UnitCreatorPreviewSelection);
+
+	public bool Supports(string targetName, string propertyName, Type targetType)
+	{
+		return TargetType.IsAssignableFrom(targetType) &&
+			spriteAccessor.Supports(targetName, propertyName, typeof(UnitCreatorPreviewSprite));
+	}
+
+	public void SetValue(object target, string propertyName, float value)
+	{
+		if (target is not UnitCreatorPreviewSelection selection)
+		{
+			return;
+		}
+
+		foreach (UnitCreatorPreviewSprite sprite in selection.Sprites)
+		{
+			spriteAccessor.SetValue(sprite, propertyName, value);
+		}
 	}
 }

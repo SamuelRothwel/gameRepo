@@ -110,6 +110,12 @@ public class UnitComponentAttachmentData
     public List<UnitComponentAttachmentData> ChildComponents { get; set; } = new();
 }
 
+public interface IUnitDefinitionProvider
+{
+    IEnumerable<UnitDefinition> CreateDefinitions(Func<IEnumerable<IUnitBehavior>> behaviorFactory);
+    UnitDefinition NormalizeDefinition(UnitDefinition definition, Func<Guid, UnitDefinition> getUnitDefinition);
+}
+
 public class UnitBehaviorProfile
 {
     readonly Dictionary<string, List<string>> commandBehaviors = new();
@@ -270,6 +276,7 @@ public class UnitDefinition
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; }
+    public string DefinitionKind { get; set; } = "unit";
     public int Version { get; set; }
     public string CommandType { get; set; }
     public float Radius { get; set; }

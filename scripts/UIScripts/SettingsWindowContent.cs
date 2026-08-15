@@ -144,6 +144,7 @@ public partial class SettingsWindowContent : VBoxContainer
 		categoryGrid.AddChild(createCategoryButton("Controls", () => showSubMenu(SettingsPage.Controls, "Controls", createControlsMenu())));
 		categoryGrid.AddChild(createCategoryButton("Appearance", () => showSubMenu(SettingsPage.Appearance, "Appearance", createStylesMenu())));
 		categoryGrid.AddChild(createCategoryButton("Colors", () => showSubMenu(SettingsPage.Colors, "Colors", createColorsMenu())));
+		categoryGrid.AddChild(createCategoryButton("Data", () => showSubMenu(SettingsPage.Data, "Data", createDataMenu())));
 
 		if (shouldShowReturnToMainMenu())
 		{
@@ -312,9 +313,43 @@ public partial class SettingsWindowContent : VBoxContainer
 		return scroll;
 	}
 
+	Control createDataMenu()
+	{
+		VBoxContainer menu = new VBoxContainer();
+		menu.AddThemeConstantOverride("separation", 8);
+
+		Label metadataStatus = new Label();
+		metadataStatus.Text = getMetadataStatusText();
+		mAccess.styleManager.applyTextStyle(metadataStatus, "muted");
+		menu.AddChild(metadataStatus);
+
+		Button refreshMetadataButton = createActionButton("Refresh Metadata", "secondary");
+		refreshMetadataButton.CustomMinimumSize = new Vector2(0, 38);
+		refreshMetadataButton.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		refreshMetadataButton.Pressed += () => refreshMetadata(metadataStatus);
+		menu.AddChild(refreshMetadataButton);
+
+		return menu;
+	}
+
 	Control createInputActionRow(StringName actionName)
 	{
 		return createReadOnlySettingRow(actionName.ToString(), getActionBindText(actionName));
+	}
+
+	string getMetadataStatusText()
+	{
+		int typeCount = mAccess.unitManager?.unitVariableMetadata?.Count ?? 0;
+		return "Metadata Types: " + typeCount;
+	}
+
+	void refreshMetadata(Label metadataStatus)
+	{
+		mAccess.unitManager?.setupUnitVariableMetadata();
+		if (metadataStatus != null && GodotObject.IsInstanceValid(metadataStatus))
+		{
+			metadataStatus.Text = getMetadataStatusText();
+		}
 	}
 
 	Control createReadOnlySettingRow(string settingName, string settingValue)
@@ -976,5 +1011,6 @@ public enum SettingsPage
 	Visual,
 	Controls,
 	Appearance,
-	Colors
+	Colors,
+	Data
 }

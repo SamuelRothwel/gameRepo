@@ -420,6 +420,8 @@ public partial class EntityFrameworkManagement : managerNode
 	const string MainDatabaseName = "game_data.db";
 	const string TextDataFileName = "text data.json";
 	const string GameSettingsKey = "game_settings";
+	const string DefinitionKindTraitKey = "__definitionKind";
+	const string ComponentAttachmentsTraitKey = "__componentAttachments";
 	public Dictionary<Guid, UnsavedObjectRegistration> unsavedObjects;
 	public DatabaseStorageTextData databaseTextData;
 	public override void setup()
@@ -511,6 +513,14 @@ public partial class EntityFrameworkManagement : managerNode
 		return new JsonSerializerOptions
 		{
 			WriteIndented = true
+		};
+	}
+
+	JsonSerializerOptions CreateDefinitionJsonOptions()
+	{
+		return new JsonSerializerOptions
+		{
+			IncludeFields = true
 		};
 	}
 
@@ -1224,6 +1234,22 @@ public partial class EntityFrameworkManagement : managerNode
 
 	IEnumerable<StoredUnitTrait> CreateUnitTraits(Guid unitId, UnitDefinition definition)
 	{
+		yield return new StoredUnitTrait
+		{
+			Id = Guid.NewGuid(),
+			StoredUnitId = unitId,
+			Key = DefinitionKindTraitKey,
+			ValueType = "text",
+			ValueJson = JsonSerializer.Serialize(definition.DefinitionKind)
+		};
+		yield return new StoredUnitTrait
+		{
+			Id = Guid.NewGuid(),
+			StoredUnitId = unitId,
+			Key = ComponentAttachmentsTraitKey,
+			ValueType = "json",
+			ValueJson = JsonSerializer.Serialize(definition.ComponentAttachments, CreateDefinitionJsonOptions())
+		};
 		foreach (KeyValuePair<string, float> trait in definition.NumericalTraits)
 		{
 			yield return new StoredUnitTrait
@@ -1448,6 +1474,24 @@ public partial class EntityFrameworkManagement : managerNode
 
 	void ApplyTrait(UnitDefinition definition, string key, string valueType, string valueJson)
 	{
+		if (key == DefinitionKindTraitKey)
+		{
+			definition.DefinitionKind = JsonSerializer.Deserialize<string>(valueJson) ?? "unit";
+			return;
+		}
+		if (key == ComponentAttachmentsTraitKey)
+		{
+			try
+			{
+				definition.ComponentAttachments = JsonSerializer.Deserialize<List<UnitComponentAttachmentData>>(valueJson, CreateDefinitionJsonOptions())
+					?? new List<UnitComponentAttachmentData>();
+			}
+			catch
+			{
+				definition.ComponentAttachments = new List<UnitComponentAttachmentData>();
+			}
+			return;
+		}
 		if (valueType == "number")
 		{
 			float value = JsonSerializer.Deserialize<float>(valueJson);

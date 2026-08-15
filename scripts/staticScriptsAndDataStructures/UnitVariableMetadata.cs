@@ -107,6 +107,7 @@ public static class UnitVariableMetadataScanner
 			SourceVersion = GetSourceVersion(type)
 		};
 		definitions[typeName] = definition;
+		AddEnumerableItemMember(type, definition, definitions, followObjectMembers);
 
 		foreach (MemberInfo member in GetVariableMembers(type))
 		{
@@ -155,6 +156,40 @@ public static class UnitVariableMetadataScanner
 		if (!string.IsNullOrEmpty(definition.DirectBaseTypeName))
 		{
 			ScanType(type.BaseType, definitions, false, false);
+		}
+	}
+
+	static void AddEnumerableItemMember(
+		Type type,
+		UnitVariableTypeDefinition definition,
+		Dictionary<string, UnitVariableTypeDefinition> definitions,
+		bool followObjectMembers)
+	{
+		Type elementType = GetCollectionElementType(type);
+		if (elementType == null)
+		{
+			return;
+		}
+
+		Type storedObjectType = NormalizeType(elementType);
+		if (storedObjectType == null)
+		{
+			return;
+		}
+
+		string elementTypeName = GetTypeName(storedObjectType);
+		definition.ObjectMembers.Add(new UnitVariableObjectMemberDefinition
+		{
+			Name = "item",
+			MemberTypeName = elementTypeName,
+			VariableKind = "enumerableItem",
+			IsCollection = false,
+			ElementTypeName = elementTypeName
+		});
+
+		if (followObjectMembers)
+		{
+			ScanType(storedObjectType, definitions, IsProjectType(storedObjectType), ShouldFollowObjectMembers(storedObjectType));
 		}
 	}
 
@@ -255,16 +290,21 @@ public static class UnitVariableMetadataScanner
 		if (type.IsGenericType)
 		{
 			Type genericDefinition = type.GetGenericTypeDefinition();
-			if (genericDefinition == typeof(List<>) ||
-				genericDefinition == typeof(IReadOnlyList<>) ||
-				genericDefinition == typeof(IEnumerable<>) ||
-				genericDefinition == typeof(Dictionary<,>) ||
-				type.GetInterfaces().Any(interfaceType => interfaceType.IsGenericType && interfaceType.GetGenericTypeDefinition() == typeof(IEnumerable<>)))
+			if (genericDefinition == typeof(Dictionary<,>))
 			{
 				return type.GetGenericArguments().LastOrDefault();
 			}
+			if (genericDefinition == typeof(List<>) ||
+				genericDefinition == typeof(IReadOnlyList<>) ||
+				genericDefinition == typeof(IEnumerable<>))
+			{
+				return type.GetGenericArguments().FirstOrDefault();
+			}
 		}
-		return null;
+
+		Type enumerableInterface = type.GetInterfaces()
+			.FirstOrDefault(interfaceType => interfaceType.IsGenericType && interfaceType.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+		return enumerableInterface?.GetGenericArguments().FirstOrDefault();
 	}
 
 	static bool ShouldFollowObjectMembers(Type type)

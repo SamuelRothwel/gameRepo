@@ -254,7 +254,7 @@ public partial class SandboxScene : Node2D
 		ulong deadline = Time.GetTicksUsec() + 3000000;
 		while (Time.GetTicksUsec() < deadline)
 		{
-			DynamicAnimator animator = new DynamicAnimator(definition, new CircularSpriteAnimationTarget(rigSprites), null);
+			DynamicAnimator animator = new DynamicAnimator(definition, CreateRigAnimationTarget(), null);
 			animator.Process(Math.Max(definition.Duration, 0.001f));
 			runs++;
 		}
@@ -340,7 +340,7 @@ public partial class SandboxScene : Node2D
 		ulong start = Time.GetTicksUsec();
 		for (int i = 0; i < entityCount; i++)
 		{
-			DynamicAnimator animator = new DynamicAnimator(definition, new CircularSpriteAnimationTarget(rigSprites), null);
+			DynamicAnimator animator = new DynamicAnimator(definition, CreateRigAnimationTarget(), null);
 			animator.Process(Math.Max(definition.Duration, 0.001f));
 		}
 		return Time.GetTicksUsec() - start;
@@ -468,9 +468,14 @@ public partial class SandboxScene : Node2D
 			return null;
 		}
 
-		DynamicAnimator animator = new DynamicAnimator(definition, new CircularSpriteAnimationTarget(rigSprites), eventHandler);
+		DynamicAnimator animator = new DynamicAnimator(definition, CreateRigAnimationTarget(), eventHandler);
 		activeDynamicAnimators.Add(animator);
 		return animator;
+	}
+
+	EnumerableAnimationTarget<Sprite2D> CreateRigAnimationTarget()
+	{
+		return new EnumerableAnimationTarget<Sprite2D>(rigSprites, rigSprites.MoveNext);
 	}
 
 	AnimationPlayer FindAnimationPlayer(string animationName)

@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
-using coolbeats.scripts.logicScripts.AttachedLogic.Components;
 
 public partial class UnitCreatorManagement : managerNode
 {
@@ -23,6 +22,7 @@ public partial class UnitCreatorManagement : managerNode
 		activeUnit = new UnitDefinition
 		{
 			Name = "New Unit",
+			DefinitionKind = "unit",
 			CommandType = "commandable",
 			Radius = 30,
 			DetectionRadius = 150,
@@ -32,6 +32,39 @@ public partial class UnitCreatorManagement : managerNode
 		savedUnitVersion = 0;
 		RegisterActiveUnit();
 		unitChanged?.Invoke(this, EventArgs.Empty);
+	}
+
+	public void CreateNewComponent()
+	{
+		activeUnit = new UnitDefinition
+		{
+			Name = "New Component",
+			DefinitionKind = "component",
+			CommandType = "",
+			Radius = 0,
+			DetectionRadius = 0,
+			MaxHP = 1
+		};
+		currentUnitVersion = 0;
+		savedUnitVersion = 0;
+		RegisterActiveUnit();
+		unitChanged?.Invoke(this, EventArgs.Empty);
+	}
+
+	public bool IsStoredComponent(StoredUnit storedUnit)
+	{
+		StoredUnitTrait kindTrait = storedUnit?.Traits.FirstOrDefault(trait => trait.Key == "__definitionKind");
+		if (kindTrait != null)
+		{
+			try
+			{
+				return JsonSerializer.Deserialize<string>(kindTrait.ValueJson) == "component";
+			}
+			catch
+			{
+			}
+		}
+		return storedUnit?.Name == "marineGun";
 	}
 
 	public void OpenSpritesPanel()
@@ -49,8 +82,11 @@ public partial class UnitCreatorManagement : managerNode
 		Func<IEnumerable<IUnitBehavior>> behaviorFactory = mAccess.unitManager == null
 			? () => Array.Empty<IUnitBehavior>()
 			: mAccess.unitManager.CreateKnownBehaviors;
-		activeUnit = EnsureFallbackComponents(mAccess.entityFrameworkManager.ToUnitDefinition(storedUnit, behaviorFactory));
-		mAccess.unitManager?.RegisterUnitDefinition(activeUnit);
+		activeUnit = NormalizeDefinition(mAccess.entityFrameworkManager.ToUnitDefinition(storedUnit, behaviorFactory));
+		if (activeUnit.DefinitionKind != "component")
+		{
+			mAccess.unitManager?.RegisterUnitDefinition(activeUnit);
+		}
 		currentUnitVersion = storedUnit.Version;
 		savedUnitVersion = storedUnit.Version;
 		RegisterActiveUnit();
@@ -67,7 +103,10 @@ public partial class UnitCreatorManagement : managerNode
 		activeUnit.Version = currentUnitVersion;
 		savedUnitVersion = mAccess.entityFrameworkManager.SaveUnit(activeUnit);
 		currentUnitVersion = savedUnitVersion;
-		mAccess.unitManager?.RegisterUnitDefinition(activeUnit);
+		if (activeUnit.DefinitionKind != "component")
+		{
+			mAccess.unitManager?.RegisterUnitDefinition(activeUnit);
+		}
 		RegisterActiveUnit();
 		return savedUnitVersion;
 	}
@@ -192,7 +231,12 @@ public partial class UnitCreatorManagement : managerNode
 			.FirstOrDefault(attachment => attachment.StoredSpriteId != null || !string.IsNullOrEmpty(attachment.SpriteSetKey));
 		if (firstSprite == null)
 		{
-			return null;
+			Func<IEnumerable<IUnitBehavior>> behaviorFactory = mAccess.unitManager == null
+				? () => Array.Empty<IUnitBehavior>()
+				: mAccess.unitManager.CreateKnownBehaviors;
+			UnitDefinition definition = mAccess.entityFrameworkManager.ToUnitDefinition(storedUnit, behaviorFactory);
+			UnitSpriteAttachmentData componentSprite = FindFirstComponentSprite(definition.ComponentAttachments);
+			return componentSprite == null ? null : CreateAttachmentPreview(componentSprite);
 		}
 
 		if (firstSprite.StoredSpriteId != null)
@@ -209,6 +253,27 @@ public partial class UnitCreatorManagement : managerNode
 		return string.IsNullOrEmpty(firstSprite.SpriteSetKey)
 			? null
 			: CreateSpriteSetPreview(firstSprite.SpriteSetKey);
+	}
+
+	UnitSpriteAttachmentData FindFirstComponentSprite(IEnumerable<UnitComponentAttachmentData> components)
+	{
+		foreach (UnitComponentAttachmentData component in components.OrderBy(component => component.Order))
+		{
+			UnitSpriteAttachmentData sprite = component.SpriteAttachments
+				.OrderBy(attachment => attachment.Order)
+				.FirstOrDefault();
+			if (sprite != null)
+			{
+				return sprite;
+			}
+
+			sprite = FindFirstComponentSprite(component.ChildComponents);
+			if (sprite != null)
+			{
+				return sprite;
+			}
+		}
+		return null;
 	}
 
 	public Texture2D CreateSpriteSetPreview(string spriteSetKey)
@@ -236,7 +301,7 @@ public partial class UnitCreatorManagement : managerNode
 			.FirstOrDefault(definition => definition.Id == unitId);
 		if (registeredDefinition != null)
 		{
-			return EnsureFallbackComponents(registeredDefinition);
+			return NormalizeDefinition(registeredDefinition);
 		}
 
 		Func<IEnumerable<IUnitBehavior>> behaviorFactory = mAccess.unitManager == null
@@ -247,87 +312,34 @@ public partial class UnitCreatorManagement : managerNode
 			.FirstOrDefault(unit => unit.Id == unitId);
 		return storedUnit == null
 			? null
-			: EnsureFallbackComponents(mAccess.entityFrameworkManager.ToUnitDefinition(storedUnit, behaviorFactory));
+			: NormalizeDefinition(mAccess.entityFrameworkManager.ToUnitDefinition(storedUnit, behaviorFactory));
 	}
 
-	UnitDefinition EnsureFallbackComponents(UnitDefinition definition)
+	UnitDefinition NormalizeDefinition(UnitDefinition definition)
 	{
-		if (definition == null)
-		{
-			return null;
-		}
-
-		if (definition.Name == "marineGun" && definition.SpriteAttachments.Count == 0)
-		{
-			definition.SpriteAttachments.Add(new UnitSpriteAttachmentData
-			{
-				Name = "barrel",
-				SpriteSetKey = "GunBarrel",
-				Order = 0
-			});
-		}
-		if (definition.Name == "marine")
-		{
-			NormalizeMarineComponents(definition);
-		}
-
-		return definition;
+		return mAccess.unitManager == null
+			? definition
+			: mAccess.unitManager.NormalizeUnitDefinition(definition, ResolveDefinitionWithoutNormalization);
 	}
 
-	void NormalizeMarineComponents(UnitDefinition definition)
+	UnitDefinition ResolveDefinitionWithoutNormalization(Guid unitId)
 	{
-		if (definition.ComponentAttachments.Any(component => component.Name == "gun"))
+		UnitDefinition registeredDefinition = mAccess.unitManager?.unitDefinitions.Values
+			.FirstOrDefault(definition => definition.Id == unitId);
+		if (registeredDefinition != null)
 		{
-			return;
+			return registeredDefinition;
 		}
 
-		UnitSubUnitAttachmentData gunSubUnit = definition.SubUnitAttachments
-			.FirstOrDefault(subUnit => subUnit.Name == "gun" || GetUnitDefinition(subUnit.ChildUnitId)?.Name == "marineGun");
-		Vector2 gunPosition = gunSubUnit?.Position ?? new Vector2(13, -10);
-		if (gunSubUnit != null)
-		{
-			definition.SubUnitAttachments.Remove(gunSubUnit);
-		}
-
-		definition.ComponentAttachments.Add(CreateGunComponent(gunPosition));
-	}
-
-	UnitComponentAttachmentData CreateGunComponent(Vector2 position)
-	{
-		UnitComponentAttachmentData gun = new UnitComponentAttachmentData
-		{
-			Name = "gun",
-			TypeName = typeof(componentGun).FullName ?? nameof(componentGun),
-			Position = position,
-			Order = 0,
-			Traits = new List<UnitDataTrait>
-			{
-				new UnitDataTrait { Key = "role", ValueType = "text", ValueJson = JsonSerializer.Serialize("weapon") },
-				new UnitDataTrait { Key = "automaticBehaviour", ValueType = "text", ValueJson = JsonSerializer.Serialize("none") },
-				new UnitDataTrait { Key = "positionX", ValueType = "number", ValueJson = JsonSerializer.Serialize(position.X) },
-				new UnitDataTrait { Key = "positionY", ValueType = "number", ValueJson = JsonSerializer.Serialize(position.Y) }
-			}
-		};
-
-		gun.ChildComponents.Add(new UnitComponentAttachmentData
-		{
-			Name = "circular sprites",
-			TypeName = typeof(GunComponentRing).FullName ?? nameof(GunComponentRing),
-			Order = 0,
-			Traits = new List<UnitDataTrait>
-			{
-				new UnitDataTrait { Key = "spriteIterator", ValueType = "text", ValueJson = JsonSerializer.Serialize("circular") },
-				new UnitDataTrait { Key = "spriteCount", ValueType = "number", ValueJson = JsonSerializer.Serialize(3f) }
-			},
-			SpriteAttachments = new List<UnitSpriteAttachmentData>
-			{
-				new UnitSpriteAttachmentData { Name = "barrel", SpriteSetKey = "GunBarrel", Order = 0 },
-				new UnitSpriteAttachmentData { Name = "barrel", SpriteSetKey = "GunBarrel", Order = 1 },
-				new UnitSpriteAttachmentData { Name = "barrel", SpriteSetKey = "GunBarrel", Order = 2 }
-			}
-		});
-
-		return gun;
+		Func<IEnumerable<IUnitBehavior>> behaviorFactory = mAccess.unitManager == null
+			? () => Array.Empty<IUnitBehavior>()
+			: mAccess.unitManager.CreateKnownBehaviors;
+		StoredUnit storedUnit = mAccess.entityFrameworkManager
+			.GetUnits()
+			.FirstOrDefault(unit => unit.Id == unitId);
+		return storedUnit == null
+			? null
+			: mAccess.entityFrameworkManager.ToUnitDefinition(storedUnit, behaviorFactory);
 	}
 
 	Control CreateSavedSpriteRow(StoredSprite storedSprite)
@@ -414,6 +426,93 @@ public partial class UnitCreatorManagement : managerNode
 			}
 		});
 		MarkActiveUnitChanged();
+	}
+
+	public void AddComponentAttachment(StoredUnit storedComponent, Vector2 position)
+	{
+		if (activeUnit == null || storedComponent == null || storedComponent.Id == activeUnit.Id)
+		{
+			return;
+		}
+
+		Func<IEnumerable<IUnitBehavior>> behaviorFactory = mAccess.unitManager == null
+			? () => Array.Empty<IUnitBehavior>()
+			: mAccess.unitManager.CreateKnownBehaviors;
+		UnitDefinition definition = mAccess.entityFrameworkManager.ToUnitDefinition(storedComponent, behaviorFactory);
+		activeUnit.ComponentAttachments.Add(ToComponentAttachment(definition, position));
+		MarkActiveUnitChanged();
+	}
+
+	UnitComponentAttachmentData ToComponentAttachment(UnitDefinition definition, Vector2 position)
+	{
+		UnitComponentAttachmentData component = new UnitComponentAttachmentData
+		{
+			Name = definition.Name,
+			TypeName = definition.DescriptiveTraits.TryGetValue("componentType", out string typeName) ? typeName : "",
+			Position = position,
+			Order = activeUnit.ComponentAttachments.Count,
+			SpriteAttachments = definition.SpriteAttachments.Select(CloneSpriteAttachment).ToList(),
+			ChildComponents = definition.ComponentAttachments.Select(CloneComponentAttachment).ToList()
+		};
+		foreach (KeyValuePair<string, float> trait in definition.NumericalTraits)
+		{
+			component.Traits.Add(new UnitDataTrait
+			{
+				Key = trait.Key,
+				ValueType = "number",
+				ValueJson = JsonSerializer.Serialize(trait.Value)
+			});
+		}
+		foreach (KeyValuePair<string, string> trait in definition.DescriptiveTraits)
+		{
+			component.Traits.Add(new UnitDataTrait
+			{
+				Key = trait.Key,
+				ValueType = "text",
+				ValueJson = JsonSerializer.Serialize(trait.Value)
+			});
+		}
+		return component;
+	}
+
+	UnitComponentAttachmentData CloneComponentAttachment(UnitComponentAttachmentData source)
+	{
+		return new UnitComponentAttachmentData
+		{
+			Name = source.Name,
+			TypeName = source.TypeName,
+			Position = source.Position,
+			Rotation = source.Rotation,
+			Order = source.Order,
+			Traits = source.Traits.Select(CloneTrait).ToList(),
+			SpriteAttachments = source.SpriteAttachments.Select(CloneSpriteAttachment).ToList(),
+			ChildComponents = source.ChildComponents.Select(CloneComponentAttachment).ToList()
+		};
+	}
+
+	UnitSpriteAttachmentData CloneSpriteAttachment(UnitSpriteAttachmentData source)
+	{
+		return new UnitSpriteAttachmentData
+		{
+			StoredSpriteId = source.StoredSpriteId,
+			Name = source.Name,
+			Position = source.Position,
+			Rotation = source.Rotation,
+			Scale = source.Scale,
+			Order = source.Order,
+			SpriteSetKey = source.SpriteSetKey,
+			Traits = source.Traits.Select(CloneTrait).ToList()
+		};
+	}
+
+	UnitDataTrait CloneTrait(UnitDataTrait source)
+	{
+		return new UnitDataTrait
+		{
+			Key = source.Key,
+			ValueType = source.ValueType,
+			ValueJson = source.ValueJson
+		};
 	}
 
 	public void MoveSpriteAttachment(UnitSpriteAttachmentData attachment, Vector2 position)
