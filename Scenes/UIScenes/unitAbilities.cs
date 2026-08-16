@@ -11,13 +11,26 @@ public partial class unitAbilities : GridContainer
 		mAccess.inputManager.unitSelected += new EventHandler(newUnit);
 		Columns = 4;
 	}
+
+	public override void _ExitTree()
+	{
+		if (mAccess.inputManager != null)
+		{
+			mAccess.inputManager.unitSelected -= new EventHandler(newUnit);
+		}
+	}
+
 	void newUnit(object sender, EventArgs e)
 	{
 		foreach (Node child in GetChildren())
 		{
 			child.QueueFree();
 		}
-		Dictionary<Godot.Key, (string[], string)> commands = mAccess.unitManager.commandSets[mAccess.inputManager.selectedType].Item2;
+		if (!mAccess.unitManager.commandSets.TryGetValue(mAccess.inputManager.selectedType, out var commandSet))
+		{
+			return;
+		}
+		Dictionary<Godot.Key, (string[], string)> commands = commandSet.Item2;
 		foreach (KeyValuePair<Godot.Key, (string[], string)> command in commands)
 		{
 			abilityButton newButton = new abilityButton(command.Key, command.Value.Item2);

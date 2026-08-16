@@ -25,6 +25,8 @@ public static class mAccess
 	public static FileManagement fileManager;
 	public static EntityFrameworkManagement entityFrameworkManager;
 	public static WindowManagement windowManager;
+	public static GameSessionManagement gameSessionManager;
+	public static TestManagement testManager;
 
 	public static void setup(Godot.Collections.Array<Node> managers)
 	{
@@ -95,6 +97,12 @@ public static class mAccess
 				case "WindowManager":
 					windowManager = manager as WindowManagement;
 					break;
+				case "GameSessionManager":
+					gameSessionManager = manager as GameSessionManagement;
+					break;
+				case "TestManager":
+					testManager = manager as TestManagement;
+					break;
 				default:
 					GD.Print("invalid manager: " + manager.Name);
 					break;
@@ -121,5 +129,7 @@ public static class mAccess
 		unitManager.setup();
 		teamManager.setup();
 		inputManager.setup();
+		gameSessionManager.setup();
+		testManager.setup();
 	}
 }

@@ -26,7 +26,8 @@ public partial class EntityManagement : managerNode
 	public Node spawnEntity(string name)
 	{
 		Node newEntity = packedEntities[name].Instantiate();
-		AddChild(newEntity);
+		Node parent = mAccess.gameSessionManager?.Current?.WorldRoot ?? this;
+		parent.AddChild(newEntity);
 		return newEntity;
 	}
 	public Node getEntity(string name)
@@ -36,10 +37,18 @@ public partial class EntityManagement : managerNode
 	}
 	public void defferedAddChild(Node child, Node parent)
 	{
-		CallDeferred("addChild", child, parent);
+		CallDeferred(nameof(addChild), child, parent);
 	}
 	public void addChild(Node child, Node parent)
 	{
+		if (!GodotObject.IsInstanceValid(child) || !GodotObject.IsInstanceValid(parent) || child.IsQueuedForDeletion())
+		{
+			return;
+		}
+		if (child.GetParent() != null)
+		{
+			return;
+		}
 		parent.AddChild(child);
 	}
 }

@@ -136,7 +136,7 @@ public partial class SandboxScene : Node2D
 	void RefreshEntityChoices()
 	{
 		entityChoice.Clear();
-		foreach (StoredUnit unit in mAccess.entityFrameworkManager?.GetUnits() ?? new List<StoredUnit>())
+		foreach (StoredUnit unit in mAccess.entityFrameworkManager?.GetUnits(mAccess.unitManager.activeGameId) ?? new List<StoredUnit>())
 		{
 			int index = entityChoice.ItemCount;
 			entityChoice.AddItem(unit.Name);

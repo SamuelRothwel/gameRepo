@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using coolbeats.scripts.staticScriptsAndDataStructures;
 using Godot;
 
@@ -13,11 +14,37 @@ namespace coolbeats.scripts.managerScripts
 
         public override void setup()
         {
-            unitTeams.Clear();
-            teams = new team[] { new team(), new team() };
-            setEnemies(0, 1);
-            setEnemies(1, 0);
+			LoadGameTeams(EntityFrameworkManagement.DefaultGameId);
         }
+
+		public void LoadGameTeams(Guid gameId)
+		{
+			unitTeams.Clear();
+			List<StoredGameTeam> definitions = mAccess.entityFrameworkManager.GetGameTeams(gameId);
+			if (definitions.Count == 0)
+			{
+				teams = Array.Empty<team>();
+				return;
+			}
+			int size = definitions.Max(definition => definition.TeamIndex) + 1;
+			teams = Enumerable.Range(0, size).Select(_ => new team()).ToArray();
+			foreach (StoredGameTeam definition in definitions)
+			{
+				teams[definition.TeamIndex].name = definition.Name;
+			}
+			foreach (StoredGameTeam definition in definitions)
+			{
+				try
+				{
+					int[] enemies = JsonSerializer.Deserialize<int[]>(definition.EnemyTeamIndexesJson) ?? Array.Empty<int>();
+					setEnemies(definition.TeamIndex, enemies.Where(isValidTeamIndex).ToArray());
+				}
+				catch
+				{
+					setEnemies(definition.TeamIndex);
+				}
+			}
+		}
 
         void setEnemies(int teamIndex, params int[] enemyIndexes)
         {
@@ -42,6 +69,19 @@ namespace coolbeats.scripts.managerScripts
 
             throw new Exception(ID.ToString() + " not assigned to team");
         }
+
+		public int GetTeamIndex(Guid id)
+		{
+			if (unitTeams.TryGetValue(id, out int teamIndex))
+			{
+				return teamIndex;
+			}
+			for (int i = 0; i < teams.Length; i++)
+			{
+				if (teams[i].units.Contains(id)) return i;
+			}
+			return 0;
+		}
 
         public void addUnit(Guid ID, int teamIndex)
         {
@@ -79,7 +119,7 @@ namespace coolbeats.scripts.managerScripts
 
         public override void _Process(double delta)
         {
-            if (mAccess.sceneManager?.gameStates?["gameActive"] == true)
+			if (mAccess.sceneManager != null && mAccess.sceneManager.HasGameCapability("gameActive"))
             {
                 UpdateTeamVisions();
             }

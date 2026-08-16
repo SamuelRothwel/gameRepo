@@ -16,6 +16,7 @@ public partial class AnimationManagement : managerNode
 	public Dictionary<string, AnimationLibrary> animationSets = new Dictionary<string, AnimationLibrary>();
 	public Dictionary<string, DynamicAnimationDefinition> dynamicAnimationDefinitions = new Dictionary<string, DynamicAnimationDefinition>();
 	List<DynamicAnimator> activeDynamicAnimators = new List<DynamicAnimator>();
+	public int ActiveDynamicAnimatorCount => activeDynamicAnimators.Count;
 	public Dictionary<string, int> trackTypeIndex = new Dictionary<string, int>
 	{ { "Value", 0 }, { "Position3D", 1 }, {"Rotation3D", 2 }, {"Scale3D", 3 }, { "BlendShape", 4 }, { "Method", 5 }, { "Bezier", 6 }, { "Audio", 7 }, { "Animation", 8 } };
 	public override void setup()
@@ -36,7 +37,14 @@ public partial class AnimationManagement : managerNode
 		for (int i = activeDynamicAnimators.Count - 1; i >= 0; i--)
 		{
 			DynamicAnimator animator = activeDynamicAnimators[i];
-			animator.Process(delta);
+			if (!animator.HasValidTargets)
+			{
+				animator.Cancel();
+			}
+			else
+			{
+				animator.Process(delta);
+			}
 			if (animator.IsComplete)
 			{
 				activeDynamicAnimators.RemoveAt(i);
@@ -291,6 +299,7 @@ public interface IDynamicAnimationTarget
 {
 	float GetVariable(string source);
 	object ResolveAnimationTarget(string name, int index);
+	bool HasValidTargets();
 	void CompleteAnimation();
 }
 
@@ -309,6 +318,7 @@ public class DynamicAnimator
 	public string Name { get; }
 	public float Speed { get; set; } = 1f;
 	public bool IsComplete { get; private set; }
+	public bool HasValidTargets => target != null && target.HasValidTargets();
 	public float Elapsed => (float)elapsed;
 
 	public DynamicAnimator(DynamicAnimationDefinition definition, IDynamicAnimationTarget target, Action<string> eventHandler)
@@ -361,6 +371,11 @@ public class DynamicAnimator
 		}
 	}
 
+	public void Cancel()
+	{
+		IsComplete = true;
+	}
+
 	void ApplyTransformation(DynamicAnimationTransformation transformation, double currentElapsed)
 	{
 		float startTime = Math.Min(transformation.StartTime, transformation.EndTime);
@@ -397,6 +412,11 @@ public class DynamicAnimator
 		object targetObject = target.ResolveAnimationTarget(path[0], index);
 		if (targetObject == null)
 		{
+			return;
+		}
+		if (targetObject is GodotObject godotObject && !GodotObject.IsInstanceValid(godotObject))
+		{
+			Cancel();
 			return;
 		}
 
@@ -452,6 +472,11 @@ public class EnumerableAnimationTarget<T> : IDynamicAnimationTarget
 		}
 
 		return items[index];
+	}
+
+	public bool HasValidTargets()
+	{
+		return items.All(item => item is not GodotObject godotObject || GodotObject.IsInstanceValid(godotObject));
 	}
 
 	public void CompleteAnimation()

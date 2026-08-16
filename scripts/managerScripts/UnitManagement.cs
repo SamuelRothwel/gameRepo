@@ -17,37 +17,54 @@ namespace coolbeats.scripts.managerScripts
         public List<(string, (string, (Godot.Key, string[], string)[]))> _commandSets;
         public Dictionary<string, (int, Dictionary<Godot.Key, (string[], string)>)> commandSets;
         public List<Guid> selectedUnit = new List<Guid>();
+		public Guid activeGameId { get; private set; }
         public override void setup()
         {
-            _commandSets = new List<(string, (string, (Key, string[], string)[]))>();
-            commandSets = new Dictionary<string, (int, Dictionary<Key, (string[], string)>)>();
-            _commandSets.Add(("", ("", new (Godot.Key, string[], string)[0])));
-            _commandSets.Add(("commandable", ("", new (Godot.Key, string[], string)[] {(Key.Backspace, new string[] {"active"}, "idle")} )));
-            _commandSets.Add(("rallyable", ("commandable", new (Godot.Key, string[], string)[] {(Key.None, new string[] {"ground", "team", "ally", "enemy"}, "move"), (Key.P, new string[] {"ground", "team", "ally", "enemy"}, "patrol"), (Key.H, new string[] {"active"}, "holdPosition")})));
-            _commandSets.Add(("attacker", ("rallyable", new (Godot.Key, string[], string)[] { (Key.A,  new string[] {"ground"}, "attackMove")} )));
-            _commandSets.Add(("barracks", ("commandable", new (Godot.Key, string[], string)[] { (Key.A,  new string[] {"active"}, "train")} )));
-            for (int i = 0; i < _commandSets.Count; i++)
-            {
-                (string, (string, (Godot.Key, string[], string)[])) set = _commandSets[i];
-                Dictionary<Godot.Key, (string[], string)> newSet = new Dictionary<Godot.Key, (string[], string)>();
-                if (set.Item2.Item1 != "")
-                {
-                    foreach (KeyValuePair<Godot.Key, (string[], string)> com in commandSets[set.Item2.Item1].Item2)
-                    {
-                        newSet[com.Key] = com.Value;
-                    }
-                }
-                (Godot.Key, string[], string)[] commandSet = set.Item2.Item2;
-                for (int j = 0; j < commandSet.Length; j++)
-                {
-                    newSet[commandSet[j].Item1] = (commandSet[j].Item2, commandSet[j].Item3);
-                }
-                commandSets[set.Item1] = (i, newSet);
-            }
-            setupUnitDefinitions();
             setupUnitVariableMetadata();
+			LoadGameDefinitions(EntityFrameworkManagement.DefaultGameId);
         }
-        public void setupUnitDefinitions()
+
+		public void LoadGameDefinitions(Guid gameId)
+		{
+			activeGameId = gameId;
+			setupCommandSets(gameId);
+			unitDefinitions.Clear();
+			setupUnitDefinitions(gameId);
+		}
+
+		void setupCommandSets(Guid gameId)
+		{
+			commandSets = new Dictionary<string, (int, Dictionary<Key, (string[], string)>)>();
+			List<StoredGameCommandBinding> bindings = mAccess.entityFrameworkManager.GetGameCommandBindings(gameId);
+			Dictionary<string, List<StoredGameCommandBinding>> grouped = bindings.GroupBy(binding => binding.CommandType).ToDictionary(group => group.Key, group => group.ToList());
+			HashSet<string> building = new HashSet<string>();
+
+			(int, Dictionary<Key, (string[], string)>) Build(string commandType)
+			{
+				if (commandSets.TryGetValue(commandType, out var existing)) return existing;
+				if (!grouped.TryGetValue(commandType, out List<StoredGameCommandBinding> current)) return (0, new Dictionary<Key, (string[], string)>());
+				if (!building.Add(commandType)) throw new InvalidOperationException("Command binding inheritance cycle: " + commandType);
+				string parent = current.Select(binding => binding.ParentCommandType).FirstOrDefault(value => !string.IsNullOrEmpty(value)) ?? "";
+				var inherited = string.IsNullOrEmpty(parent) ? (0, new Dictionary<Key, (string[], string)>()) : Build(parent);
+				Dictionary<Key, (string[], string)> actions = new Dictionary<Key, (string[], string)>(inherited.Item2);
+				foreach (StoredGameCommandBinding binding in current)
+				{
+					if (string.IsNullOrEmpty(binding.CommandName)) continue;
+					string[] targets;
+					try { targets = JsonSerializer.Deserialize<string[]>(binding.TargetTypesJson) ?? Array.Empty<string>(); }
+					catch { targets = Array.Empty<string>(); }
+					actions[(Key)binding.KeyCode] = (targets, binding.CommandName);
+				}
+				var built = (inherited.Item1 + (string.IsNullOrEmpty(parent) ? 0 : 1), actions);
+				commandSets[commandType] = built;
+				building.Remove(commandType);
+				return built;
+			}
+
+			foreach (string commandType in grouped.Keys) Build(commandType);
+		}
+
+        public void setupUnitDefinitions(Guid gameId)
         {
             unitDefinitionProviders = DiscoverUnitDefinitionProviders();
             foreach (IUnitDefinitionProvider provider in unitDefinitionProviders)
@@ -56,12 +73,12 @@ namespace coolbeats.scripts.managerScripts
                 {
                     UnitDefinition normalizedDefinition = NormalizeUnitDefinition(definition);
                     RegisterUnitDefinition(normalizedDefinition);
-                    mAccess.entityFrameworkManager?.EnsureUnitDefinition(normalizedDefinition);
-                    EnsureComponentDefinitions(normalizedDefinition.ComponentAttachments);
+					mAccess.entityFrameworkManager?.EnsureUnitDefinition(normalizedDefinition, gameId);
+					EnsureComponentDefinitions(normalizedDefinition.ComponentAttachments, gameId);
                 }
             }
 
-            foreach (UnitDefinition storedDefinition in mAccess.entityFrameworkManager?.GetUnitDefinitions(CreateKnownBehaviors) ?? new List<UnitDefinition>())
+			foreach (UnitDefinition storedDefinition in mAccess.entityFrameworkManager?.GetUnitDefinitions(CreateKnownBehaviors, gameId) ?? new List<UnitDefinition>())
             {
                 if (storedDefinition.DefinitionKind != "component")
                 {
@@ -69,7 +86,7 @@ namespace coolbeats.scripts.managerScripts
                 }
             }
         }
-        void EnsureComponentDefinitions(IEnumerable<UnitComponentAttachmentData> components)
+		void EnsureComponentDefinitions(IEnumerable<UnitComponentAttachmentData> components, Guid gameId)
         {
             foreach (UnitComponentAttachmentData component in components)
             {
@@ -100,8 +117,8 @@ namespace coolbeats.scripts.managerScripts
                     {
                     }
                 }
-                mAccess.entityFrameworkManager?.EnsureUnitDefinition(definition);
-                EnsureComponentDefinitions(component.ChildComponents);
+				mAccess.entityFrameworkManager?.EnsureUnitDefinition(definition, gameId);
+				EnsureComponentDefinitions(component.ChildComponents, gameId);
             }
         }
         List<IUnitDefinitionProvider> DiscoverUnitDefinitionProviders()
@@ -182,11 +199,13 @@ namespace coolbeats.scripts.managerScripts
             unit.priority = commandSets[unit.type].Item1;
             units[unit.ID] = unit;
             mAccess.teamManager.addUnit(unit.ID, team);
+			mAccess.gameSessionManager?.Current?.TrackUnit(unit.ID);
         }
         public void remove(Guid ID)
         {
             mAccess.teamManager?.removeUnit(ID);
             units.Remove(ID);
+			mAccess.gameSessionManager?.Current?.UntrackUnit(ID);
         }
     }
     public class command

@@ -7,8 +7,8 @@ using System.Linq;
 
 public partial class trail : BackgroundLogicNode
 {
-	Godot.Collections.Array<Node> wheels = new Godot.Collections.Array<Node>();
-	List<Line2D> lines = new List<Line2D>();
+	readonly List<Node> wheels = new List<Node>();
+	readonly List<Line2D> lines = new List<Line2D>();
 	int maxPoints = 10;
 	public override void setup()
 	{
@@ -17,6 +17,12 @@ public partial class trail : BackgroundLogicNode
 
 	public override void creationFlag(Node node)
 	{
+		GameSession session = mAccess.gameSessionManager?.Current;
+		if (session == null || node is not Node2D || !session.WorldRoot.IsAncestorOf(node))
+		{
+			return;
+		}
+
 		wheels.Add(node);
 		Line2D line = new Line2D
 		{
@@ -34,20 +40,47 @@ public partial class trail : BackgroundLogicNode
 		mAccess.entityManager.defferedAddChild(line, node);
     }
 
-	public override void _Process(double delta)
+	public override void sessionStopped(GameSession session)
 	{
-		for (int i = 0; i < wheels.Count; i++)
+		for (int i = wheels.Count - 1; i >= 0; i--)
 		{
-			Node current = wheels[i];
-			if (current is Node2D node2D)
+			Node wheel = wheels[i];
+			if (GodotObject.IsInstanceValid(wheel) && session.WorldRoot.IsAncestorOf(wheel))
 			{
-				Vector2 coordinates = node2D.GlobalPosition;
-				lines[i].AddPoint(coordinates);
-				if (lines[i].Points.Length > maxPoints)
-				{
-					lines[i].RemovePoint(0);
-				}
+				removeTrailAt(i);
 			}
 		}
+	}
+
+	public override void _Process(double delta)
+	{
+		for (int i = wheels.Count - 1; i >= 0; i--)
+		{
+			Node current = wheels[i];
+			Line2D line = lines[i];
+			if (!GodotObject.IsInstanceValid(current) || !GodotObject.IsInstanceValid(line) || current is not Node2D node2D)
+			{
+				removeTrailAt(i);
+				continue;
+			}
+
+			Vector2 coordinates = node2D.GlobalPosition;
+			line.AddPoint(coordinates);
+			if (line.Points.Length > maxPoints)
+			{
+				line.RemovePoint(0);
+			}
+		}
+	}
+
+	void removeTrailAt(int index)
+	{
+		Line2D line = lines[index];
+		if (GodotObject.IsInstanceValid(line) && !line.IsQueuedForDeletion())
+		{
+			line.QueueFree();
+		}
+		wheels.RemoveAt(index);
+		lines.RemoveAt(index);
 	}
 }

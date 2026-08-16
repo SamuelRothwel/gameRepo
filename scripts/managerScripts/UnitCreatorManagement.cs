@@ -101,7 +101,7 @@ public partial class UnitCreatorManagement : managerNode
 		}
 
 		activeUnit.Version = currentUnitVersion;
-		savedUnitVersion = mAccess.entityFrameworkManager.SaveUnit(activeUnit);
+		savedUnitVersion = mAccess.entityFrameworkManager.SaveUnit(activeUnit, mAccess.unitManager.activeGameId);
 		currentUnitVersion = savedUnitVersion;
 		if (activeUnit.DefinitionKind != "component")
 		{
@@ -165,7 +165,7 @@ public partial class UnitCreatorManagement : managerNode
 		savedUnitsList.CustomMinimumSize = new Vector2(300, 0);
 		scroll.AddChild(savedUnitsList);
 
-		List<StoredUnit> units = mAccess.entityFrameworkManager.GetUnits()
+		List<StoredUnit> units = mAccess.entityFrameworkManager.GetUnits(mAccess.unitManager.activeGameId)
 			.Where(unit => unit.Name != "marineGun")
 			.ToList();
 		if (units.Count == 0)
@@ -308,7 +308,7 @@ public partial class UnitCreatorManagement : managerNode
 			? () => Array.Empty<IUnitBehavior>()
 			: mAccess.unitManager.CreateKnownBehaviors;
 		StoredUnit storedUnit = mAccess.entityFrameworkManager
-			.GetUnits()
+			.GetUnits(mAccess.unitManager.activeGameId)
 			.FirstOrDefault(unit => unit.Id == unitId);
 		return storedUnit == null
 			? null
@@ -335,7 +335,7 @@ public partial class UnitCreatorManagement : managerNode
 			? () => Array.Empty<IUnitBehavior>()
 			: mAccess.unitManager.CreateKnownBehaviors;
 		StoredUnit storedUnit = mAccess.entityFrameworkManager
-			.GetUnits()
+			.GetUnits(mAccess.unitManager.activeGameId)
 			.FirstOrDefault(unit => unit.Id == unitId);
 		return storedUnit == null
 			? null

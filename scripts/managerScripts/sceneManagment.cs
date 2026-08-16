@@ -60,53 +60,113 @@ public partial class sceneManagment : managerNode
 	{
 		changeSceneAfterUnsavedCheck(() =>
 		{
-			GetTree().ChangeSceneToPacked(gameScene);
-			gameStates.Switch("inGame");
-			//mAccess.unitManager.createUnit("marine", 0);
-			mAccess.unitManager.createUnit("marine", 0);
-			//mAccess.unitManager.createUnit("barracks", 0);
-			mAccess.unitManager.createUnit("marine", 1);
-			mAccess.uiManager.changeUI("game");
-			mAccess.entityManager.spawnEntity("playerCamera");
+			startStoredGameScene(EntityFrameworkManagement.DefaultGameId, "tactical");
 		});
+	}
+
+	public void showGameTypeSelection()
+	{
+		VBoxContainer content = new VBoxContainer { CustomMinimumSize = new Vector2(320, 150) };
+		content.AddChild(new Label { Text = "Choose game type" });
+		foreach (StoredGame game in mAccess.entityFrameworkManager.GetStartGameTypes())
+		{
+			Button button = new Button { Text = game.Id == EntityFrameworkManagement.DefaultGameId ? "RTS — " + game.Name : game.Name };
+			button.Pressed += () =>
+			{
+				mAccess.windowManager.closeWindow("Game Type", false);
+				startStoredGameScene(game.Id, game.DefaultSceneKey);
+			};
+			content.AddChild(button);
+		}
+		mAccess.windowManager.openWindow("Game Type", content, "staticMenu", false);
+	}
+
+	public void startStoredGameScene(Guid gameId, string sceneKey)
+	{
+		StoredGameScene definition = mAccess.entityFrameworkManager.GetGameScene(gameId, sceneKey)
+			?? throw new InvalidOperationException("Game scene was not found: " + sceneKey);
+		PackedScene packedScene = GD.Load<PackedScene>(definition.SceneResourcePath)
+			?? throw new InvalidOperationException("Game scene resource was not found: " + definition.SceneResourcePath);
+
+		GetTree().ChangeSceneToPacked(packedScene);
+		mAccess.gameSessionManager.Start(gameId, sceneKey);
+		gameStates.Switch(stateNameFor(definition.SceneTypeId));
+		mAccess.uiManager.changeUI(definition.UiKey);
+	}
+
+	public void loadStoredGameSession(Guid gameId, string saveName)
+	{
+		StoredSaveSlot save = mAccess.entityFrameworkManager.GetGameSession(gameId, saveName)
+			?? throw new InvalidOperationException("Save slot was not found: " + saveName);
+		StoredGameScene definition = mAccess.entityFrameworkManager.GetGameScene(gameId, save.SceneKey)
+			?? throw new InvalidOperationException("Saved scene was not found: " + save.SceneKey);
+		PackedScene packedScene = GD.Load<PackedScene>(definition.SceneResourcePath)
+			?? throw new InvalidOperationException("Saved scene resource was not found: " + definition.SceneResourcePath);
+
+		GetTree().ChangeSceneToPacked(packedScene);
+		mAccess.gameSessionManager.Load(gameId, saveName);
+		gameStates.Switch(stateNameFor(definition.SceneTypeId));
+		mAccess.uiManager.changeUI(definition.UiKey);
 	}
 	public void startMenu()
 	{
 		changeSceneAfterUnsavedCheck(() =>
 		{
-			GetTree().ChangeSceneToPacked(menuScene);
-			gameStates.Switch("menu");
-			mAccess.uiManager.changeUI("main");
+			startMenuImmediately();
 		});
+	}
+	// Automated scenarios must always restore their starting state without an
+	// unsaved-object dialog interrupting test completion.
+	public void startMenuForTests()
+	{
+		startMenuImmediately();
+	}
+	void startMenuImmediately()
+	{
+		mAccess.gameSessionManager.End();
+		GetTree().ChangeSceneToPacked(menuScene);
+		gameStates.Switch("menu");
+		mAccess.uiManager.changeUI("main");
 	}
 	public void spriteCreator()
 	{
 		changeSceneAfterUnsavedCheck(() =>
 		{
-			GetTree().ChangeSceneToPacked(menuScene);
-			gameStates.Switch("spriteCreator");
-			mAccess.uiManager.changeUI("spriteCreator");
-			mAccess.entityManager.spawnEntity("playerCamera");
+			startStoredGameScene(EntityFrameworkManagement.DefaultGameId, "spriteCreator");
 		});
 	}
 	public void unitCreator()
 	{
 		changeSceneAfterUnsavedCheck(() =>
 		{
-			GetTree().ChangeSceneToPacked(menuScene);
-			gameStates.Switch("unitCreator");
-			mAccess.uiManager.changeUI("unitCreator");
-			mAccess.entityManager.spawnEntity("playerCamera");
+			startStoredGameScene(EntityFrameworkManagement.DefaultGameId, "unitCreator");
 		});
 	}
 	public void sandbox()
 	{
 		changeSceneAfterUnsavedCheck(() =>
 		{
-			GetTree().ChangeSceneToPacked(sandboxScene);
-			gameStates.Switch("gameActive");
-			mAccess.uiManager.changeUI("sandbox");
+			startStoredGameScene(EntityFrameworkManagement.DefaultGameId, "sandbox");
 		});
+	}
+
+	public bool HasGameCapability(string capability)
+	{
+		GameSession session = mAccess.gameSessionManager?.Current;
+		return session == null ? gameStates[capability] : session.HasCapability(capability);
+	}
+
+	string stateNameFor(string sceneTypeId)
+	{
+		return sceneTypeId switch
+		{
+			"tactical-selection" => "inGame",
+			"sprite-authoring" => "spriteCreator",
+			"unit-authoring" => "unitCreator",
+			"sandbox" => "gameActive",
+			"moba-projectile-arena" => "gameActive",
+			_ => "menu"
+		};
 	}
 
 	void changeSceneAfterUnsavedCheck(Action changeScene)

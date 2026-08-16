@@ -1,4 +1,4 @@
-[gd_scene load_steps=30 format=3 uid="uid://nou2fkswxvvc"]
+[gd_scene load_steps=32 format=3 uid="uid://nou2fkswxvvc"]
 
 [ext_resource type="Script" path="res://scripts/managerScripts/LogicManagement.cs" id="1_0nxiu"]
 [ext_resource type="Script" path="res://scripts/managerScripts/EntityManagement.cs" id="1_j3fb0"]
@@ -29,6 +29,8 @@
 [ext_resource type="Script" path="res://scripts/managerScripts/WindowManagement.cs" id="26_2r0pr"]
 [ext_resource type="Script" path="res://scripts/managerScripts/StyleManagement.cs" id="27_mh0ng"]
 [ext_resource type="PackedScene" path="res://Scenes/GameScenes/sandbox_scene.tscn" id="28_w4jif"]
+[ext_resource type="Script" path="res://scripts/gameFramework/GameSessionManagement.cs" id="29_game_session"]
+[ext_resource type="Script" path="res://scripts/gameFramework/TestManagement.cs" id="30_gameplay_tests"]
 
 [node name="managers" type="Node"]
 
@@ -96,6 +98,12 @@ packedSpriteMaps = ExtResource("13_0w3ej")
 
 [node name="InputManager" type="Node" parent="." groups=["admin"]]
 script = ExtResource("19_xrkr1")
+
+[node name="GameSessionManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("29_game_session")
+
+[node name="TestManager" type="Node" parent="." groups=["admin"]]
+script = ExtResource("30_gameplay_tests")
 
 [node name="SceneManager" type="Node" parent="." groups=["admin"]]
 script = ExtResource("2_8sw6g")

@@ -77,6 +77,7 @@ public class StoredAnimationTransformation
 public class StoredUnit
 {
 	public Guid Id { get; set; }
+	public Guid GameId { get; set; }
 	public string Name { get; set; } = "";
 	public int Version { get; set; }
 	public string CommandType { get; set; } = "";
@@ -224,6 +225,58 @@ public class StoredGameSetting
 	public string ValueJson { get; set; } = "";
 }
 
+public class StoredGame
+{
+	public Guid Id { get; set; }
+	public string Name { get; set; } = "";
+	public int Version { get; set; }
+	public string DefaultSceneKey { get; set; } = "";
+}
+
+public class StoredGameScene
+{
+	public Guid Id { get; set; }
+	public Guid GameId { get; set; }
+	public string SceneKey { get; set; } = "";
+	public string SceneTypeId { get; set; } = "";
+	public string SceneResourcePath { get; set; } = "";
+	public string UiKey { get; set; } = "";
+	public string ModuleConfigJson { get; set; } = "{}";
+	public string InitialEntitiesJson { get; set; } = "{}";
+	public int Version { get; set; }
+}
+
+public class StoredGameCommandBinding
+{
+	public Guid Id { get; set; }
+	public Guid GameId { get; set; }
+	public string CommandType { get; set; } = "";
+	public string ParentCommandType { get; set; } = "";
+	public int KeyCode { get; set; }
+	public string TargetTypesJson { get; set; } = "[]";
+	public string CommandName { get; set; } = "";
+}
+
+public class StoredGameTeam
+{
+	public Guid Id { get; set; }
+	public Guid GameId { get; set; }
+	public int TeamIndex { get; set; }
+	public string Name { get; set; } = "";
+	public string EnemyTeamIndexesJson { get; set; } = "[]";
+}
+
+public class StoredSaveSlot
+{
+	public Guid Id { get; set; }
+	public Guid GameId { get; set; }
+	public string Name { get; set; } = "";
+	public string SceneKey { get; set; } = "";
+	public int Version { get; set; }
+	public string StateJson { get; set; } = "{}";
+	public DateTime UpdatedAtUtc { get; set; }
+}
+
 public class GameDbContext : DbContext
 {
 	public static string DatabasePath { get; set; } = ProjectSettings.GlobalizePath("user://game_data.db");
@@ -245,6 +298,11 @@ public class GameDbContext : DbContext
 	public DbSet<StoredUnitComponentVariable> UnitComponentVariables { get; set; }
 	public DbSet<StoredUnitComponentObjectMember> UnitComponentObjectMembers { get; set; }
 	public DbSet<StoredGameSetting> GameSettings { get; set; }
+	public DbSet<StoredGame> Games { get; set; }
+	public DbSet<StoredGameScene> GameScenes { get; set; }
+	public DbSet<StoredGameCommandBinding> GameCommandBindings { get; set; }
+	public DbSet<StoredGameTeam> GameTeams { get; set; }
+	public DbSet<StoredSaveSlot> SaveSlots { get; set; }
 
 	protected override void OnConfiguring(DbContextOptionsBuilder options)
 	{
@@ -330,6 +388,12 @@ public class GameDbContext : DbContext
 
 		modelBuilder.Entity<StoredGameSetting>()
 			.HasKey(setting => setting.Key);
+
+		modelBuilder.Entity<StoredGame>().HasKey(game => game.Id);
+		modelBuilder.Entity<StoredGameScene>().HasKey(scene => scene.Id);
+		modelBuilder.Entity<StoredGameCommandBinding>().HasKey(binding => binding.Id);
+		modelBuilder.Entity<StoredGameTeam>().HasKey(team => team.Id);
+		modelBuilder.Entity<StoredSaveSlot>().HasKey(slot => slot.Id);
 
 		modelBuilder.Entity<StoredUnit>()
 			.HasMany(unit => unit.Traits)
@@ -418,6 +482,8 @@ public class GameDbContext : DbContext
 public partial class EntityFrameworkManagement : managerNode
 {
 	const string MainDatabaseName = "game_data.db";
+	public static readonly Guid DefaultGameId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+	public static readonly Guid MobaGameId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 	const string TextDataFileName = "text data.json";
 	const string GameSettingsKey = "game_settings";
 	const string DefinitionKindTraitKey = "__definitionKind";
@@ -594,6 +660,8 @@ public partial class EntityFrameworkManagement : managerNode
 		EnsureSpriteVersionColumn(context);
 		EnsureUnitTables(context);
 		EnsureGameSettingsTable(context);
+		EnsureGameSessionTables(context);
+		EnsureDefaultGame(context);
 	}
 
 	void EnsureSpriteVersionColumn(GameDbContext context)
@@ -804,6 +872,219 @@ public partial class EntityFrameworkManagement : managerNode
 			""");
 	}
 
+	void EnsureGameSessionTables(GameDbContext context)
+	{
+		context.Database.ExecuteSqlRaw("""
+			CREATE TABLE IF NOT EXISTS Games (
+				Id TEXT NOT NULL CONSTRAINT PK_Games PRIMARY KEY,
+				Name TEXT NOT NULL,
+				Version INTEGER NOT NULL,
+				DefaultSceneKey TEXT NOT NULL
+			)
+			""");
+		context.Database.ExecuteSqlRaw("""
+			CREATE TABLE IF NOT EXISTS GameScenes (
+				Id TEXT NOT NULL CONSTRAINT PK_GameScenes PRIMARY KEY,
+				GameId TEXT NOT NULL,
+				SceneKey TEXT NOT NULL,
+				SceneTypeId TEXT NOT NULL,
+				SceneResourcePath TEXT NOT NULL,
+				UiKey TEXT NOT NULL,
+				ModuleConfigJson TEXT NOT NULL,
+				InitialEntitiesJson TEXT NOT NULL,
+				Version INTEGER NOT NULL
+			)
+			""");
+		context.Database.ExecuteSqlRaw("""
+			CREATE UNIQUE INDEX IF NOT EXISTS IX_GameScenes_GameId_SceneKey ON GameScenes (GameId, SceneKey)
+			""");
+		context.Database.ExecuteSqlRaw("""
+			CREATE TABLE IF NOT EXISTS GameCommandBindings (
+				Id TEXT NOT NULL CONSTRAINT PK_GameCommandBindings PRIMARY KEY,
+				GameId TEXT NOT NULL,
+				CommandType TEXT NOT NULL,
+				ParentCommandType TEXT NOT NULL,
+				KeyCode INTEGER NOT NULL,
+				TargetTypesJson TEXT NOT NULL,
+				CommandName TEXT NOT NULL
+			)
+			""");
+		context.Database.ExecuteSqlRaw("""
+			CREATE TABLE IF NOT EXISTS GameTeams (
+				Id TEXT NOT NULL CONSTRAINT PK_GameTeams PRIMARY KEY,
+				GameId TEXT NOT NULL,
+				TeamIndex INTEGER NOT NULL,
+				Name TEXT NOT NULL,
+				EnemyTeamIndexesJson TEXT NOT NULL
+			)
+			""");
+		context.Database.ExecuteSqlRaw("""
+			CREATE UNIQUE INDEX IF NOT EXISTS IX_GameTeams_GameId_TeamIndex ON GameTeams (GameId, TeamIndex)
+			""");
+		context.Database.ExecuteSqlRaw("""
+			CREATE TABLE IF NOT EXISTS SaveSlots (
+				Id TEXT NOT NULL CONSTRAINT PK_SaveSlots PRIMARY KEY,
+				GameId TEXT NOT NULL,
+				Name TEXT NOT NULL,
+				SceneKey TEXT NOT NULL,
+				Version INTEGER NOT NULL,
+				StateJson TEXT NOT NULL,
+				UpdatedAtUtc TEXT NOT NULL
+			)
+			""");
+		try
+		{
+			context.Database.ExecuteSqlRaw("ALTER TABLE Units ADD COLUMN GameId TEXT NOT NULL DEFAULT '11111111-1111-1111-1111-111111111111'");
+		}
+		catch
+		{
+		}
+		context.Database.ExecuteSqlRaw("UPDATE Units SET GameId = '11111111-1111-1111-1111-111111111111' WHERE GameId IS NULL OR GameId = ''");
+	}
+
+	void EnsureDefaultGame(GameDbContext context)
+	{
+		if (!context.Games.Any(game => game.Id == DefaultGameId))
+		{
+			context.Games.Add(new StoredGame
+			{
+				Id = DefaultGameId,
+				Name = "Cool Beats",
+				Version = 1,
+				DefaultSceneKey = "tactical"
+			});
+		}
+
+		EnsureDefaultScene(context, "tactical", "tactical-selection", "res://Scenes/GameScenes/game_scene.tscn", "game",
+			"{\"SpawnPlayerCamera\":true,\"Units\":[{\"DefinitionName\":\"marine\",\"TeamIndex\":0,\"PositionX\":-120,\"PositionY\":0},{\"DefinitionName\":\"marine\",\"TeamIndex\":1,\"PositionX\":120,\"PositionY\":0}]}" );
+		EnsureDefaultScene(context, "spriteCreator", "sprite-authoring", "res://Scenes/GameScenes/MenuScene.tscn", "spriteCreator", "{}");
+		EnsureDefaultScene(context, "unitCreator", "unit-authoring", "res://Scenes/GameScenes/MenuScene.tscn", "unitCreator", "{}");
+		EnsureDefaultScene(context, "sandbox", "sandbox", "res://Scenes/GameScenes/sandbox_scene.tscn", "sandbox", "{}");
+		EnsureDefaultCommandBindings(context);
+		EnsureDefaultTeams(context);
+		EnsureMobaGame(context);
+		context.SaveChanges();
+	}
+
+	void EnsureMobaGame(GameDbContext context)
+	{
+		if (!context.Games.Any(game => game.Id == MobaGameId))
+		{
+			context.Games.Add(new StoredGame { Id = MobaGameId, Name = "MOBA — Destructible Sprite Arena", Version = 1, DefaultSceneKey = "moba" });
+		}
+		EnsureScene(context, MobaGameId, "moba", "moba-projectile-arena", "res://Scenes/GameScenes/moba_scene.tscn", "sandbox", "{}");
+		// This is deliberately an idempotent data migration: early builds stored
+		// the rule in InitialEntitiesJson, while GameSession reads ModuleConfigJson.
+		StoredGameScene mobaScene = context.GameScenes.First(scene => scene.GameId == MobaGameId && scene.SceneKey == "moba");
+		const string mobaRules = "{\"Rules\":{\"damageableSprites\":true,\"destructibleParts\":true}}";
+		if (mobaScene.ModuleConfigJson != mobaRules)
+		{
+			mobaScene.ModuleConfigJson = mobaRules;
+			mobaScene.Version++;
+		}
+		EnsureMobaDestructibleEnemyDefinition(context);
+		EnsureTeams(context, MobaGameId, "Player", "Test Enemy");
+	}
+
+	void EnsureMobaDestructibleEnemyDefinition(GameDbContext context)
+	{
+		const string definitionName = "moba_test_enemy";
+		DestructibleAssemblyDefinition definition = new DestructibleAssemblyDefinition
+		{
+			MaxBodyHealth = 40,
+			Parts = new List<DestructiblePartDefinition>
+			{
+				new DestructiblePartDefinition { Id = "body", MaxHitPoints = 20, BodyDamageMultiplier = 0.5f, GridWidth = 3, GridHeight = 3, PixelSize = 32, MaterialColor = "df4a4a", WeakSpotX = -16, WeakSpotY = -16, WeakSpotWidth = 32, WeakSpotHeight = 32, WeakSpotMultiplier = 3 },
+				new DestructiblePartDefinition { Id = "arm", PositionX = 54, PositionY = -70, MaxHitPoints = 2, BodyDamageMultiplier = 0.25f, GridWidth = 2, GridHeight = 2, PixelSize = 28, MaterialColor = "e9b44c", Effects = new List<PartEffectDefinition>
+					{ new PartEffectDefinition { Type = PartEffectType.DisableAbility }, new PartEffectDefinition { Type = PartEffectType.ArmourPenalty, Value = 4 }, new PartEffectDefinition { Type = PartEffectType.MovementMultiplier, Value = 0.5f }, new PartEffectDefinition { Type = PartEffectType.Bleed } } }
+			},
+			Joints = new List<StructuralJointDefinition>
+			{
+				new StructuralJointDefinition { ParentPartId = "body", ChildPartId = "arm", ChildLoad = 0.5f, BreakImpulse = 4, ParentAnchors = new List<StructuralAnchorDefinition> { new StructuralAnchorDefinition { X = 2, Y = 0 }, new StructuralAnchorDefinition { X = 2, Y = 1 }, new StructuralAnchorDefinition { X = 2, Y = 2 } } }
+			}
+		};
+		string definitionJson = JsonSerializer.Serialize(definition);
+		StoredUnit unit = context.Units.FirstOrDefault(candidate => candidate.GameId == MobaGameId && candidate.Name == definitionName);
+		if (unit == null)
+		{
+			unit = new StoredUnit { Id = Guid.NewGuid(), GameId = MobaGameId, Name = definitionName, Version = 1, CommandType = "", MaxHP = definition.MaxBodyHealth };
+			context.Units.Add(unit);
+		}
+		StoredUnitTrait trait = context.UnitTraits.FirstOrDefault(candidate => candidate.StoredUnitId == unit.Id && candidate.Key == "destructibleParts");
+		if (trait == null)
+		{
+			trait = new StoredUnitTrait { Id = Guid.NewGuid(), StoredUnitId = unit.Id, Key = "destructibleParts" };
+			context.UnitTraits.Add(trait);
+		}
+		trait.ValueType = "text";
+		trait.ValueJson = JsonSerializer.Serialize(definitionJson);
+	}
+
+	void EnsureDefaultScene(GameDbContext context, string key, string typeId, string scenePath, string uiKey, string initialEntitiesJson)
+		=> EnsureScene(context, DefaultGameId, key, typeId, scenePath, uiKey, initialEntitiesJson);
+
+	void EnsureScene(GameDbContext context, Guid gameId, string key, string typeId, string scenePath, string uiKey, string initialEntitiesJson)
+	{
+		if (context.GameScenes.Any(scene => scene.GameId == gameId && scene.SceneKey == key))
+		{
+			return;
+		}
+		context.GameScenes.Add(new StoredGameScene
+		{
+			Id = Guid.NewGuid(),
+			GameId = gameId,
+			SceneKey = key,
+			SceneTypeId = typeId,
+			SceneResourcePath = scenePath,
+			UiKey = uiKey,
+			InitialEntitiesJson = initialEntitiesJson,
+			Version = 1
+		});
+	}
+
+	void EnsureDefaultCommandBindings(GameDbContext context)
+	{
+		if (context.GameCommandBindings.Any(binding => binding.GameId == DefaultGameId))
+		{
+			return;
+		}
+		AddDefaultBinding(context, "", "", Key.None, Array.Empty<string>(), "");
+		AddDefaultBinding(context, "commandable", "", Key.Backspace, new[] { "active" }, "idle");
+		AddDefaultBinding(context, "rallyable", "commandable", Key.None, new[] { "ground", "team", "ally", "enemy" }, "move");
+		AddDefaultBinding(context, "rallyable", "commandable", Key.P, new[] { "ground", "team", "ally", "enemy" }, "patrol");
+		AddDefaultBinding(context, "rallyable", "commandable", Key.H, new[] { "active" }, "holdPosition");
+		AddDefaultBinding(context, "attacker", "rallyable", Key.A, new[] { "ground" }, "attackMove");
+		AddDefaultBinding(context, "barracks", "commandable", Key.A, new[] { "active" }, "train");
+	}
+
+	void AddDefaultBinding(GameDbContext context, string commandType, string parentCommandType, Key key, string[] targetTypes, string commandName)
+	{
+		context.GameCommandBindings.Add(new StoredGameCommandBinding
+		{
+			Id = Guid.NewGuid(),
+			GameId = DefaultGameId,
+			CommandType = commandType,
+			ParentCommandType = parentCommandType,
+			KeyCode = (int)key,
+			TargetTypesJson = JsonSerializer.Serialize(targetTypes),
+			CommandName = commandName
+		});
+	}
+
+	void EnsureDefaultTeams(GameDbContext context)
+		=> EnsureTeams(context, DefaultGameId, "Team 1", "Team 2");
+
+	void EnsureTeams(GameDbContext context, Guid gameId, string firstName, string secondName)
+	{
+		if (context.GameTeams.Any(team => team.GameId == gameId))
+		{
+			return;
+		}
+		context.GameTeams.AddRange(
+			new StoredGameTeam { Id = Guid.NewGuid(), GameId = gameId, TeamIndex = 0, Name = firstName, EnemyTeamIndexesJson = "[1]" },
+			new StoredGameTeam { Id = Guid.NewGuid(), GameId = gameId, TeamIndex = 1, Name = secondName, EnemyTeamIndexesJson = "[0]" });
+	}
+
 	void EnsureAnimationTransformationColumns(GameDbContext context)
 	{
 		try
@@ -856,6 +1137,136 @@ public partial class EntityFrameworkManagement : managerNode
 
 		setting.ValueJson = JsonSerializer.Serialize(settings, CreateTextDataJsonOptions());
 		context.SaveChanges();
+	}
+
+	public StoredGame GetDefaultGame()
+	{
+		return GetGame(DefaultGameId);
+	}
+
+	// This is intentionally a curated start-menu list. Saved or authoring games
+	// may exist in the database without becoming a launch option automatically.
+	public List<StoredGame> GetStartGameTypes()
+	{
+		using GameDbContext context = new GameDbContext();
+		return context.Games.Where(game => game.Id == DefaultGameId || game.Id == MobaGameId)
+			.OrderBy(game => game.Id == DefaultGameId ? 0 : 1).ToList();
+	}
+
+	public StoredGame GetGame(Guid gameId)
+	{
+		using GameDbContext context = new GameDbContext();
+		return context.Games.FirstOrDefault(game => game.Id == gameId);
+	}
+
+	public void SaveGame(StoredGame game)
+	{
+		using GameDbContext context = new GameDbContext();
+		StoredGame existing = context.Games.FirstOrDefault(item => item.Id == game.Id);
+		if (existing == null)
+		{
+			context.Games.Add(game);
+		}
+		else
+		{
+			existing.Name = game.Name;
+			existing.Version = game.Version;
+			existing.DefaultSceneKey = game.DefaultSceneKey;
+		}
+		context.SaveChanges();
+	}
+
+	public StoredGameScene GetGameScene(Guid gameId, string sceneKey)
+	{
+		using GameDbContext context = new GameDbContext();
+		return context.GameScenes.FirstOrDefault(scene => scene.GameId == gameId && scene.SceneKey == sceneKey);
+	}
+
+	public void SaveGameScene(StoredGameScene scene)
+	{
+		using GameDbContext context = new GameDbContext();
+		StoredGameScene existing = context.GameScenes.FirstOrDefault(item => item.Id == scene.Id);
+		if (existing == null)
+		{
+			if (scene.Id == Guid.Empty) scene.Id = Guid.NewGuid();
+			context.GameScenes.Add(scene);
+		}
+		else
+		{
+			existing.SceneKey = scene.SceneKey;
+			existing.SceneTypeId = scene.SceneTypeId;
+			existing.SceneResourcePath = scene.SceneResourcePath;
+			existing.UiKey = scene.UiKey;
+			existing.ModuleConfigJson = scene.ModuleConfigJson;
+			existing.InitialEntitiesJson = scene.InitialEntitiesJson;
+			existing.Version = scene.Version;
+		}
+		context.SaveChanges();
+	}
+
+	public List<StoredGameCommandBinding> GetGameCommandBindings(Guid gameId)
+	{
+		using GameDbContext context = new GameDbContext();
+		return context.GameCommandBindings
+			.Where(binding => binding.GameId == gameId)
+			.OrderBy(binding => binding.CommandType)
+			.ThenBy(binding => binding.KeyCode)
+			.ToList();
+	}
+
+	public void SaveGameCommandBindings(Guid gameId, IEnumerable<StoredGameCommandBinding> bindings)
+	{
+		using GameDbContext context = new GameDbContext();
+		context.GameCommandBindings.Where(binding => binding.GameId == gameId).ExecuteDelete();
+		foreach (StoredGameCommandBinding binding in bindings)
+		{
+			binding.Id = binding.Id == Guid.Empty ? Guid.NewGuid() : binding.Id;
+			binding.GameId = gameId;
+			context.GameCommandBindings.Add(binding);
+		}
+		context.SaveChanges();
+	}
+
+	public List<StoredGameTeam> GetGameTeams(Guid gameId)
+	{
+		using GameDbContext context = new GameDbContext();
+		return context.GameTeams.Where(team => team.GameId == gameId).OrderBy(team => team.TeamIndex).ToList();
+	}
+
+	public void SaveGameTeams(Guid gameId, IEnumerable<StoredGameTeam> teams)
+	{
+		using GameDbContext context = new GameDbContext();
+		context.GameTeams.Where(team => team.GameId == gameId).ExecuteDelete();
+		foreach (StoredGameTeam team in teams)
+		{
+			team.Id = team.Id == Guid.Empty ? Guid.NewGuid() : team.Id;
+			team.GameId = gameId;
+			context.GameTeams.Add(team);
+		}
+		context.SaveChanges();
+	}
+
+	public int SaveGameSession(Guid gameId, string name, string sceneKey, int version, string stateJson)
+	{
+		using GameDbContext context = new GameDbContext();
+		StoredSaveSlot slot = context.SaveSlots.FirstOrDefault(item => item.GameId == gameId && item.Name == name);
+		if (slot == null)
+		{
+			slot = new StoredSaveSlot { Id = Guid.NewGuid(), GameId = gameId, Name = name };
+			context.SaveSlots.Add(slot);
+		}
+		slot.SceneKey = sceneKey;
+		slot.Version = version;
+		slot.StateJson = stateJson;
+		slot.UpdatedAtUtc = DateTime.UtcNow;
+		context.SaveChanges();
+		return slot.Version;
+	}
+
+	public StoredSaveSlot GetGameSession(Guid gameId, string name)
+	{
+		using GameDbContext context = new GameDbContext();
+		return context.SaveSlots.FirstOrDefault(slot => slot.GameId == gameId && slot.Name == name);
 	}
 
 	void ApplyStoredRuntimeSettings()
@@ -1137,13 +1548,14 @@ public partial class EntityFrameworkManagement : managerNode
 			.ToList();
 	}
 
-	public void EnsureUnitDefinition(UnitDefinition definition)
+	public void EnsureUnitDefinition(UnitDefinition definition, Guid? gameId = null)
 	{
+		Guid selectedGameId = gameId ?? DefaultGameId;
 		using GameDbContext context = new GameDbContext();
-		StoredUnit unit = context.Units.FirstOrDefault(unit => unit.Name == definition.Name);
+		StoredUnit unit = context.Units.FirstOrDefault(unit => unit.GameId == selectedGameId && unit.Name == definition.Name);
 		if (unit == null)
 		{
-			SaveUnit(definition);
+			SaveUnit(definition, selectedGameId);
 			return;
 		}
 
@@ -1151,15 +1563,16 @@ public partial class EntityFrameworkManagement : managerNode
 		definition.Version = unit.Version;
 	}
 
-	public int SaveUnit(UnitDefinition definition)
+	public int SaveUnit(UnitDefinition definition, Guid? gameId = null)
 	{
+		Guid selectedGameId = gameId ?? DefaultGameId;
 		using GameDbContext context = new GameDbContext();
 		using var transaction = context.Database.BeginTransaction();
-		StoredUnit unit = context.Units.FirstOrDefault(unit => unit.Id == definition.Id);
+		StoredUnit unit = context.Units.FirstOrDefault(unit => unit.Id == definition.Id && unit.GameId == selectedGameId);
 
 		if (unit == null)
 		{
-			unit = context.Units.FirstOrDefault(unit => unit.Name == definition.Name);
+			unit = context.Units.FirstOrDefault(unit => unit.GameId == selectedGameId && unit.Name == definition.Name);
 		}
 
 		if (unit == null)
@@ -1177,6 +1590,7 @@ public partial class EntityFrameworkManagement : managerNode
 		}
 
 		unit.Name = definition.Name;
+		unit.GameId = selectedGameId;
 		unit.Version = definition.Version;
 		unit.CommandType = definition.CommandType;
 		unit.Radius = definition.Radius;
@@ -1368,15 +1782,17 @@ public partial class EntityFrameworkManagement : managerNode
 		};
 	}
 
-	public List<UnitDefinition> GetUnitDefinitions(Func<IEnumerable<IUnitBehavior>> behaviorFactory)
+	public List<UnitDefinition> GetUnitDefinitions(Func<IEnumerable<IUnitBehavior>> behaviorFactory, Guid? gameId = null)
 	{
-		return GetUnits().Select(unit => ToUnitDefinition(unit, behaviorFactory)).ToList();
+		return GetUnits(gameId).Select(unit => ToUnitDefinition(unit, behaviorFactory)).ToList();
 	}
 
-	public List<StoredUnit> GetUnits()
+	public List<StoredUnit> GetUnits(Guid? gameId = null)
 	{
+		Guid selectedGameId = gameId ?? DefaultGameId;
 		using GameDbContext context = new GameDbContext();
 		List<StoredUnit> units = context.Units
+			.Where(unit => unit.GameId == selectedGameId)
 			.Include(unit => unit.Traits)
 			.Include(unit => unit.Behaviors)
 			.Include(unit => unit.Abilities)
@@ -1391,6 +1807,7 @@ public partial class EntityFrameworkManagement : managerNode
 			.Select(unit => new StoredUnit
 			{
 				Id = unit.Id,
+				GameId = unit.GameId,
 				Name = unit.Name,
 				Version = unit.Version,
 				CommandType = unit.CommandType,

@@ -1,9 +1,11 @@
-[gd_scene load_steps=5 format=3 uid="uid://dalhs1on3mcak"]
+[gd_scene load_steps=7 format=3 uid="uid://dalhs1on3mcak"]
 
 [ext_resource type="Script" path="res://scripts/UIScripts/StartButton.cs" id="2_5cfns"]
 [ext_resource type="Script" path="res://scripts/UIScripts/ExitButton.cs" id="2_du24d"]
 [ext_resource type="Script" path="res://scripts/UIScripts/UnitCreatorButton.cs" id="3_yq64e"]
-[ext_resource type="Script" path="res://scripts/UIScripts/SandboxButton.cs" id="5_rkf08"]
+[ext_resource type="Script" path="res://scripts/UIScripts/RunGameplayTestsButton.cs" id="5_rkf08"]
+[ext_resource type="Script" path="res://scripts/UIScripts/SandboxButton.cs" id="6_sandbox"]
+[ext_resource type="Script" path="res://scripts/UIScripts/RunMobaGameplayTestsButton.cs" id="7_moba_tests"]
 
 [node name="MainMenuAssets" type="Node"]
 
@@ -23,13 +25,29 @@ offset_bottom = 587.0
 text = "Exit"
 script = ExtResource("2_du24d")
 
-[node name="TestButton" type="Button" parent="."]
+[node name="RunTestsButton" type="Button" parent="."]
 offset_left = 713.0
 offset_top = 543.0
 offset_right = 866.0
 offset_bottom = 591.0
-text = "Test"
+text = "Run Tests"
 script = ExtResource("5_rkf08")
+
+[node name="RunMobaTestsButton" type="Button" parent="."]
+offset_left = 713.0
+offset_top = 600.0
+offset_right = 866.0
+offset_bottom = 648.0
+text = "Run MOBA Tests"
+script = ExtResource("7_moba_tests")
+
+[node name="TestSandboxButton" type="Button" parent="."]
+offset_left = 363.0
+offset_top = 544.0
+offset_right = 516.0
+offset_bottom = 592.0
+text = "Test"
+script = ExtResource("6_sandbox")
 
 [node name="UnitCreator" type="Button" parent="."]
 offset_left = 156.0

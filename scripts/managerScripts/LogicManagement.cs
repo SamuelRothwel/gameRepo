@@ -66,4 +66,11 @@ public partial class LogicManagement : managerNode
 			}
 		}
 	}
+	public void sessionStopped(GameSession session)
+	{
+		foreach (BackgroundLogicNode logicNode in backgroundLogic.Values)
+		{
+			logicNode.sessionStopped(session);
+		}
+	}
 }

@@ -3,8 +3,10 @@ using System;
 
 public partial class pen : Node2D
 {
+	public static readonly Color SelectionColor = new Color("#00ff0066");
 	Rect2 rectangle = new Rect2();
-	bool draw = true;
+	public bool HasRectangle => rectangle.Size.LengthSquared() > 0.001f;
+	public Color VisibleColor => HasRectangle ? SelectionColor : new Color(0, 0, 0, 0);
 	public void drawRectangle(Rect2 rect)
 	{
 		rectangle = rect;
@@ -21,15 +23,14 @@ public partial class pen : Node2D
 	}
 	public void erase()
 	{
-		draw = false;
+		rectangle = new Rect2();
 		QueueRedraw();
 	}
     public override void _Draw()
     {
-		if (draw)
+		if (HasRectangle)
 		{
-			DrawRect(rectangle, new Color("#00ff0066"));
+			DrawRect(rectangle, SelectionColor);
 		}
-		draw = true;
     }
 }

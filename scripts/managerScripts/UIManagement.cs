@@ -6,6 +6,7 @@ public partial class UIManagement : managerNode
 {
 	const int TopbarHeight = 44;
 	Node CurrentUI;
+	public Node CurrentUIRoot => CurrentUI;
 	CanvasLayer topbarLayer;
 	PanelContainer topbar;
 	Button defaultSettingsButton;

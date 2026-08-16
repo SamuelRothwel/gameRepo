@@ -292,7 +292,7 @@ public partial class UnitCreatorPanel : Control
 		unitList.AddThemeConstantOverride("separation", 6);
 		scroll.AddChild(unitList);
 
-		List<StoredUnit> units = mAccess.entityFrameworkManager.GetUnits()
+		List<StoredUnit> units = mAccess.entityFrameworkManager.GetUnits(mAccess.unitManager.activeGameId)
 			.Where(unit => !mAccess.unitCreatorManager.IsStoredComponent(unit))
 			.ToList();
 		if (units.Count == 0)
@@ -343,7 +343,7 @@ public partial class UnitCreatorPanel : Control
 		componentList.AddThemeConstantOverride("separation", 6);
 		scroll.AddChild(componentList);
 
-		List<StoredUnit> components = mAccess.entityFrameworkManager.GetUnits()
+		List<StoredUnit> components = mAccess.entityFrameworkManager.GetUnits(mAccess.unitManager.activeGameId)
 			.Where(mAccess.unitCreatorManager.IsStoredComponent)
 			.ToList();
 		if (components.Count == 0)
@@ -2271,6 +2271,11 @@ public class UnitCreatorPreviewAnimationTarget : IDynamicAnimationTarget
 		}
 
 		return index < sprites.Count ? sprites[index] : null;
+	}
+
+	public bool HasValidTargets()
+	{
+		return true;
 	}
 
 	public void CompleteAnimation()
